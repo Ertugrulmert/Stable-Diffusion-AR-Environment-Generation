@@ -1,7 +1,8 @@
 from PIL import Image
 import numpy as np
 from io import BytesIO
-import os
+import os, sys
+import argparse
 from diffusers import (ControlNetModel, DiffusionPipeline,
                        StableDiffusionControlNetPipeline,
                        UniPCMultistepScheduler)
@@ -12,6 +13,10 @@ from utils.preprocessing import *
 from models.model_data import *
 from utils.visualisation import Visualiser as vis
 from models_3d import point_clouds
+
+parent_dir = os.path.dirname(os.path.dirname(__file__))
+
+sys.path.append(os.path.join(parent_dir, 'utils'))
 
 torch.cuda.empty_cache()
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -393,3 +398,40 @@ class ControlNetModelWrapper:
             eval_results.to_csv(eval_table_path, mode='a', index=False, header=False)
 
         return eval_results
+
+
+
+def main():
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--data_path', default='/data/nyu_depth_v2_labeled.mat')
+    parser.add_argument('--result_root', default='./results/NYU/')
+    parser.add_argument('--prompt', default='')
+    parser.add_argument('--guidance_scale', default=9, type=int)
+    parser.add_argument('--strength', default=0.75, type=float)
+    parser.add_argument('--num_inference_steps', type=int, default=40)
+    parser.add_argument('--condition_type', type=str, default="depth")
+    parser.add_argument('--multi_condition', type=bool, default=False)
+
+    args = parser.parse_args()
+
+    data_path  = args.data_path
+    result_root  = args.result_root
+    f = h5py.File(data_path)
+
+    rgb_images = f['images']
+    depth_maps = f['depths']
+
+    pipeline = ControlNetModelWrapper(condition_type=args.condition_type,
+                                    multi_condition=args.multi_condition,
+                                    result_root=args.result_root)
+
+    for i in range(0, rgb_images.shape[0]):
+        pipeline.run_pipeline(rgb_images[i], depth_maps[i], i, prompt=args.prompt,
+                              guidance_scale=guidance_scale, strength=args.strength,
+                              num_inference_steps=args.num_inference_steps)
+
+if __name__ == "__main__":
+    main()
+
