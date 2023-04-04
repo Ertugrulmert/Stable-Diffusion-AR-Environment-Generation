@@ -3,10 +3,13 @@ import numpy as np
 from io import BytesIO
 import os, sys
 import argparse
-from diffusers import (ControlNetModel, DiffusionPipeline,
+from diffusers import (ControlNetModel,
                        StableDiffusionControlNetPipeline,
                        UniPCMultistepScheduler)
 from transformers import MaskFormerImageProcessor, MaskFormerForInstanceSegmentation
+
+parent_dir = os.path.dirname(os.path.dirname(__file__))
+sys.path.append(parent_dir)
 
 from utils.evaluation import Evaluator
 from utils.preprocessing import *
@@ -14,9 +17,6 @@ from models.model_data import *
 from utils.visualisation import Visualiser as vis
 from models_3d import point_clouds
 
-parent_dir = os.path.dirname(os.path.dirname(__file__))
-
-sys.path.append(os.path.join(parent_dir, 'utils'))
 
 torch.cuda.empty_cache()
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")

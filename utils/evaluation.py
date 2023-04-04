@@ -11,7 +11,6 @@ from torchmetrics.image.fid import FrechetInceptionDistance
 
 from utils.preprocessing import prepare_nyu_data, align_midas
 from models.model_data import *
-from models.model_data import ModelData
 
 
 # taken from https://github.com/nianticlabs/monodepth2/blob/master/evaluate_depth.py
