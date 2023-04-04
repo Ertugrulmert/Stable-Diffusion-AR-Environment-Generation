@@ -436,7 +436,7 @@ def main():
 
     data_path = args.data_path
     result_root = args.result_root
-    f = h5py.File(data_path)
+    f = h5py.File(data_path, "r")
 
     rgb_images = f['images']
     depth_maps = f['depths']
