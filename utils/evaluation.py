@@ -250,13 +250,11 @@ class Evaluator:
         fid_score = self.fid.compute()
         inception_score = self.inception.compute()
 
+        columns = ['identifier', 'FID', 'IS_mean', 'IS_std']
+        df = pd.DataFrame(columns=columns)
+        df.loc[0] = [identifier, fid_score.item(), inception_score[0].item(), inception_score[1].item()]
+
         if save_path:
-            with open(save_path, 'a') as csvfile:
-                fieldnames = ['identifier', 'FID', 'IS_mean', 'IS_std']
-                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            df.to_csv(save_path, mode='a', index=False, header=False)
 
-                writer.writerow({'identifier': identifier, 'FID': fid_score.item(),
-                                 'IS_mean': inception_score[0].item(),
-                                 'IS_std': inception_score[1].item()})
-
-        return fid_score, inception_score
+        return df

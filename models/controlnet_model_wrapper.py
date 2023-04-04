@@ -425,7 +425,7 @@ class ControlNetModelWrapper:
         else:
             identifier = identifier + f"_range_{index_range[0]}-end"
 
-        macro_eval_path = self.result_root + "eval_logs/macro_eval_metrics.csv"
+        macro_eval_path = self.result_root + "ControlNet/eval_logs/macro_eval_metrics.csv"
 
         self.evaluator.compute_macro_metrics(identifier=identifier, save_path=macro_eval_path)
 
