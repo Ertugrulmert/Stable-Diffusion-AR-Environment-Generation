@@ -420,19 +420,7 @@ class ControlNetModelWrapper:
         self.evaluator.compute_macro_metrics(identifier=identifier, save_path=macro_eval_path)
 
 
-def main():
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument('--data_path', default='/data/nyu_depth_v2_labeled.mat')
-    parser.add_argument('--result_root', default='./results/NYU/')
-    parser.add_argument('--prompt', default='')
-    parser.add_argument('--guidance_scale', default=9, type=int)
-    parser.add_argument('--strength', default=0.75, type=float)
-    parser.add_argument('--num_inference_steps', type=int, default=40)
-    parser.add_argument('--condition_type', type=str, default="depth")
-    parser.add_argument('--multi_condition', type=bool, default=False)
-
-    args = parser.parse_args()
+def main(args):
 
     data_path = args.data_path
     result_root = args.result_root
@@ -456,4 +444,16 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--data_path', default='./data/nyu_depth_v2_labeled.mat')
+    parser.add_argument('--result_root', default='./results/NYU/')
+    parser.add_argument('--prompt', default='')
+    parser.add_argument('--guidance_scale', default=9, type=int)
+    parser.add_argument('--strength', default=0.75, type=float)
+    parser.add_argument('--num_inference_steps', type=int, default=40)
+    parser.add_argument('--condition_type', type=str, default="depth")
+    parser.add_argument('--multi_condition', type=bool, default=False)
+
+    args = parser.parse_args()
+    main(args)
