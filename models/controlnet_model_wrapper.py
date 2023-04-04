@@ -1,8 +1,7 @@
-from PIL import Image
-import numpy as np
-from io import BytesIO
-import os, sys
 import argparse
+import os
+import sys
+
 from diffusers import (ControlNetModel,
                        StableDiffusionControlNetPipeline,
                        UniPCMultistepScheduler)
@@ -34,19 +33,23 @@ class ControlNetModelWrapper:
 
     def __init__(self, condition_type="seg", multi_condition=False,
                  depth_model_type="MiDaS",
-                 result_root='./results/NYU/'):
+                 result_root='./results/NYU/',
+                 cache_dir=""):
         self.result_root = result_root
         self.multi_condition = multi_condition
-        self.load_depth_model(model_type=depth_model_type)
-        self.load_condition_model(condition_type=condition_type)
-        self.load_controlnet()
-        self.evaluator = Evaluator(condition_type=self.condition_type)
+        self.load_depth_model(model_type=depth_model_type, cache_dir=cache_dir)
+        self.load_condition_model(condition_type=condition_type, cache_dir=cache_dir)
+        self.load_controlnet(cache_dir=cache_dir)
+        self.evaluator = Evaluator(condition_type=self.condition_type, cache_dir=cache_dir)
 
     # Model Loading
 
-    def load_depth_model(self, model_type="MiDaS"):
+    def load_depth_model(self, model_type="MiDaS", cache_dir=""):
         # Loading Depth Model
         self.depth_model_type = model_type
+
+        if cache_dir:
+            torch.hub.set_dir(cache_dir + "/torch")
 
         if self.depth_model_type == "MiDaS":
             self.depth_model = torch.hub.load("intel-isl/MiDaS", self.depth_model_type)
@@ -61,7 +64,9 @@ class ControlNetModelWrapper:
         else:
             self.depth_transform = midas_transforms.small_transform
 
-    def load_condition_model(self, condition_type="seg"):
+    def load_condition_model(self, condition_type="seg", cache_dir=""):
+
+        kwargs = {"cache_dir": cache_dir} if cache_dir else {}
 
         if self.multi_condition:
             self.condition_type = ["seg", "depth"]
@@ -69,28 +74,32 @@ class ControlNetModelWrapper:
             self.condition_type = condition_type
 
         if self.condition_type == "seg" or self.multi_condition:
-            self.image_processor = MaskFormerImageProcessor.from_pretrained("facebook/maskformer-swin-large-ade")
-            # image_processor = AutoImageProcessor.from_pretrained("openmmlab/upernet-convnext-small")
+            self.image_processor = MaskFormerImageProcessor.from_pretrained("facebook/maskformer-swin-large-ade",  **kwargs)
             self.segmentation_model = MaskFormerForInstanceSegmentation.from_pretrained(
-                "facebook/maskformer-swin-large-ade")
-            # image_segmentor = UperNetForSemanticSegmentation.from_pretrained("openmmlab/upernet-convnext-small")
+                    "facebook/maskformer-swin-large-ade",  **kwargs)
 
-    def load_controlnet(self):
+    def load_controlnet(self, cache_dir=""):
+
+        kwargs = {"cache_dir": cache_dir} if cache_dir else {}
 
         torch.cuda.empty_cache()
         if self.multi_condition:
             self.controlnet_model_id = [ModelData.CONTROLNET_MODEL_IDS[type] for type in self.condition_type]
-            controlnet = [ControlNetModel.from_pretrained(model_id, torch_dtype=torch.float32)
+            controlnet = [ControlNetModel.from_pretrained(model_id, torch_dtype=torch.float32, **kwargs)
                           for model_id in self.controlnet_model_id]
         else:
             self.controlnet_model_id = ModelData.CONTROLNET_MODEL_IDS[self.condition_type]
-            controlnet = ControlNetModel.from_pretrained(self.controlnet_model_id, torch_dtype=torch.float32)
+            controlnet = ControlNetModel.from_pretrained(self.controlnet_model_id, torch_dtype=torch.float32, **kwargs)
 
         self.coltrolnet_pipe = StableDiffusionControlNetPipeline.from_pretrained(
             BASE_MODEL_ID,
             safety_checker=None,
             controlnet=controlnet,
-            torch_dtype=torch.float32)
+            torch_dtype=torch.float32,
+            **kwargs)
+
+
+
         self.coltrolnet_pipe.scheduler = UniPCMultistepScheduler.from_config(
             self.coltrolnet_pipe.scheduler.config)
         # coltrolnet_pipe.enable_xformers_memory_efficient_attention()
@@ -421,6 +430,7 @@ class ControlNetModelWrapper:
 
 
 def main(args):
+    cache_dir = args.cache_dir
 
     data_path = args.data_path
     result_root = args.result_root
@@ -431,7 +441,8 @@ def main(args):
 
     pipeline = ControlNetModelWrapper(condition_type=args.condition_type,
                                       multi_condition=args.multi_condition,
-                                      result_root=args.result_root)
+                                      result_root=args.result_root,
+                                      cache_dir=cache_dir)
 
     for i in range(0, rgb_images.shape[0]):
         pipeline.run_pipeline(rgb_images[i], depth_maps[i], i, prompt=args.prompt,
@@ -454,6 +465,7 @@ if __name__ == "__main__":
     parser.add_argument('--num_inference_steps', type=int, default=40)
     parser.add_argument('--condition_type', type=str, default="depth")
     parser.add_argument('--multi_condition', type=bool, default=False)
+    parser.add_argument('--cache_dir', type=str, default="")
 
     args = parser.parse_args()
     main(args)

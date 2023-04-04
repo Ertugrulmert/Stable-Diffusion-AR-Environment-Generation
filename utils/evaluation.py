@@ -43,10 +43,13 @@ class Evaluator:
                "Pred-Gen-Abs-Rel", "Pred-Gen-Sqr-Rel", "Pred-Gen-RMSE", "Pred-Gen-RMSE-log", \
                "Pred-Gen-thresh-1", "Pred-Gen-thresh-2", "Pred-Gen-thresh-3"]
 
-    def __init__(self, condition_type="seg", prompt=ModelData.interior_design_prompt_1):
+    def __init__(self, condition_type="seg", prompt=ModelData.interior_design_prompt_1, cache_dir=""):
+
+        if cache_dir:
+            torch.hub.set_dir(cache_dir + "/torch")
+
         self.condition_type = condition_type
         self.prompt = self.set_prompt(prompt)
-
         self.lpips = LearnedPerceptualImagePatchSimilarity(net_type='vgg')
         self.fid = FrechetInceptionDistance(feature=64)
         self.inception = InceptionScore()
