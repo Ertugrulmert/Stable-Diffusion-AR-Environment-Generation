@@ -147,12 +147,12 @@ class Evaluator:
             # -- Predicted Ground vs Predicted Generated
 
             pg_pgen_abs_rel, pg_pgen_sq_rel, pg_pgen_rmse, pg_pgen_rmse_log, pg_pgen_a1, pg_pgen_a2, pg_pgen_a3 = compute_errors(
-                ground_depth_map, predict_ground_depth_map_aligned)
+                predict_ground_depth_map_aligned, predict_depth_map_aligned)
 
             # -- Ground vs Predicted Generated
 
             g_pgen_abs_rel, g_pgen_sq_rel, g_pgen_rmse, g_pgen_rmse_log, g_pgen_a1, g_pgen_a2, g_pgen_a3 = compute_errors(
-                ground_depth_map, predict_ground_depth_map_aligned)
+                ground_depth_map, predict_depth_map_aligned)
 
             df.loc[i] = [i,  # fid_score,
                          lpips_score.item(),
@@ -226,12 +226,12 @@ class Evaluator:
         # -- Predicted Ground vs Predicted Generated
 
         pg_pgen_abs_rel, pg_pgen_sq_rel, pg_pgen_rmse, pg_pgen_rmse_log, pg_pgen_a1, pg_pgen_a2, pg_pgen_a3 = compute_errors(
-            ground_depth_map, predict_ground_depth_map_aligned)
+            predict_ground_depth_map_aligned, predict_depth_map_aligned)
 
         # -- Ground vs Predicted Generated
 
         g_pgen_abs_rel, g_pgen_sq_rel, g_pgen_rmse, g_pgen_rmse_log, g_pgen_a1, g_pgen_a2, g_pgen_a3 = compute_errors(
-            ground_depth_map, predict_ground_depth_map_aligned)
+            ground_depth_map, predict_depth_map_aligned)
 
         df.loc[0] = [id,
                      lpips_score.item(),

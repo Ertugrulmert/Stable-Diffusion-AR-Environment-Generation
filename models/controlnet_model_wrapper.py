@@ -251,7 +251,7 @@ class ControlNetModelWrapper:
         gen_img_save_name = self.result_root + f"ControlNet/2d_images/{i}_generated_from_{condition_id}.png"
         comparison_save_name = self.result_root + f"ControlNet/2d_images/{i}_comparison_from_{condition_id}.png"
 
-        identifier = f"{condition_id}_prompt_{prompt[0:min(5, len(prompt))]}_iter_{num_inference_steps}_guide_{guidance_scale}.csv"
+        identifier = f"{condition_id}_prompt_{prompt[0:min(5, len(prompt))]}_iter_{num_inference_steps}_guide_{guidance_scale}"
         eval_table_path = self.result_root + f"ControlNet/eval_logs/{identifier}.csv"
 
         # src_img_np, ground_condition_np = prepare_nyu_data(image, condition_data[i])
