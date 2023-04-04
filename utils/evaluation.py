@@ -172,7 +172,7 @@ class Evaluator:
         gen_image_tensor = torch.cat(gen_images)
 
         self.fid.update(src_image_tensor, real=True)
-        self.fid.update(src_image_tensor, real=False)
+        self.fid.update(gen_image_tensor, real=False)
         fid_score = self.fid.compute()
 
         self.inception.update(gen_image_tensor)
@@ -191,7 +191,7 @@ class Evaluator:
         return df, fid_score, inception_score
 
     def evaluate_sample(self, src_img_np, gen_img_np, ground_depth_map, predict_ground_depth_map, predict_depth_map,
-                        prompt="", id=0):
+                        prompt="", id=0, save_path=""):
         if prompt:
             self.set_prompt(prompt)
         df = pd.DataFrame(columns=self.columns)
@@ -202,6 +202,11 @@ class Evaluator:
         # creating image tensors
         src_img_tensor = torch.from_numpy(np.moveaxis(src_img_np, 2, 0)).unsqueeze(0)
         gen_img_tensor = torch.from_numpy(np.moveaxis(gen_img_np, 2, 0)).unsqueeze(0)
+
+        # these metrics require full dataset so they will be computed after all iterations are over
+        self.fid.update(src_img_tensor, real=True)
+        self.fid.update(gen_img_tensor, real=False)
+        self.inception.update(gen_img_tensor)
 
         # -- RGB Image Generation Evaluation
 
@@ -233,4 +238,22 @@ class Evaluator:
                      pg_pgen_a3,
                      g_pgen_abs_rel, g_pgen_sq_rel, g_pgen_rmse, g_pgen_rmse_log, g_pgen_a1, g_pgen_a2, g_pgen_a3]
 
+        if save_path:
+            df.to_csv(save_path, mode='a', index=False, header=False)
+
         return df
+
+    def compute_macro_metrics(self, identifier="full", save_path=""):
+        fid_score = self.fid.compute()
+        inception_score = self.inception.compute()
+
+        if save_path:
+            with open(save_path, 'a') as csvfile:
+                fieldnames = ['identifier', 'FID', 'IS_mean', 'IS_std']
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+                writer.writerow({'identifier': identifier, 'FID': fid_score.item(),
+                                 'IS_mean': inception_score[0].item(),
+                                 'IS_std': inception_score[1].item()})
+
+        return fid_score, inception_score
