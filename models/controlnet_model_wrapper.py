@@ -74,9 +74,10 @@ class ControlNetModelWrapper:
             self.condition_type = condition_type
 
         if self.condition_type == "seg" or self.multi_condition:
-            self.image_processor = MaskFormerImageProcessor.from_pretrained("facebook/maskformer-swin-large-ade",  **kwargs)
+            self.image_processor = MaskFormerImageProcessor.from_pretrained("facebook/maskformer-swin-large-ade",
+                                                                            **kwargs)
             self.segmentation_model = MaskFormerForInstanceSegmentation.from_pretrained(
-                    "facebook/maskformer-swin-large-ade",  **kwargs)
+                "facebook/maskformer-swin-large-ade", **kwargs)
 
     def load_controlnet(self, cache_dir=""):
 
@@ -97,8 +98,6 @@ class ControlNetModelWrapper:
             controlnet=controlnet,
             torch_dtype=torch.float32,
             **kwargs)
-
-
 
         self.coltrolnet_pipe.scheduler = UniPCMultistepScheduler.from_config(
             self.coltrolnet_pipe.scheduler.config)
@@ -133,7 +132,7 @@ class ControlNetModelWrapper:
 
             return output
 
-    def infer_seg_ade20k(self, image, i, save_name=''):
+    def infer_seg_ade20k(self, image, i, save_name='', display=False):
 
         # pixel_values = image_processor(image, return_tensors="pt").pixel_values
         inputs = self.image_processor(image, return_tensors="pt")
@@ -158,20 +157,20 @@ class ControlNetModelWrapper:
         color_seg = color_seg.astype(np.uint8)
         control_image = Image.fromarray(color_seg)
 
-        fontsize = 12
-
-        fig, ax = plt.subplots(1, 2)
-        ax[0].imshow(image)
-        ax[1].imshow(control_image)
-        fig.suptitle(f"Predicted ADE20k Segmentation for Image {i}", fontsize=fontsize, y=0.9)
-        for a in ax:
-            a.set_xticks([])
-            a.set_yticks([])
-        fig.tight_layout()
-
         if save_name:
             control_image.save(save_name + ".png")
-        plt.show()
+
+        if display:
+            fontsize = 12
+            fig, ax = plt.subplots(1, 2)
+            ax[0].imshow(image)
+            ax[1].imshow(control_image)
+            fig.suptitle(f"Predicted ADE20k Segmentation for Image {i}", fontsize=fontsize, y=0.9)
+            for a in ax:
+                a.set_xticks([])
+                a.set_yticks([])
+            fig.tight_layout()
+            plt.show()
 
         return control_image, H, W
 
@@ -222,7 +221,7 @@ class ControlNetModelWrapper:
                      guidance_scale=7.5, strength=0.5,
                      conditioning_scale=[1, 0.7],
                      num_inference_steps=20,
-
+                     display=False,
                      save_eval=True):
 
         if not prompt:
@@ -265,7 +264,8 @@ class ControlNetModelWrapper:
 
         # ground_for_heatmap = resize_image(ground_depth_map, image_resolution)
 
-        predict_ground_depth_map = self.infer_depth_map(src_img_np, save_name=predict_ground_depth_path)
+        predict_ground_depth_map = self.infer_depth_map(src_img_np, save_name=predict_ground_depth_path,
+                                                        display=display)
         predict_ground_depth_map = resize_image(predict_ground_depth_map, image_resolution)
         predict_ground_depth_map_aligned = align_midas(predict_ground_depth_map, ground_depth_map)
 
@@ -298,15 +298,16 @@ class ControlNetModelWrapper:
                                          predict_depth_map_aligned,
                                          img_id=i, save_name=heatmap_path)
 
-        original_pcd = point_clouds.get_point_cloud(src_img_np, ground_depth_map, pcd_path=ground_pcd_path + ".pcd")
+        original_pcd = point_clouds.get_point_cloud(src_img_np, ground_depth_map, pcd_path=ground_pcd_path + ".pcd",
+                                                    display=display)
         # original_pcd = get_point_cloud(src_img_np, ground_depth_map,  pcd_path=ground_pcd_path+".pcd")
         generated_pcd = point_clouds.get_point_cloud(gen_img_np, predict_depth_map_aligned,
-                                                     pcd_path=gen_pcd_path + ".pcd")
+                                                     pcd_path=gen_pcd_path + ".pcd", display=display)
 
-        vis.capture_pcd_with_view_params(pcd=original_pcd, pcd_path=ground_pcd_path + ".png",
-                                         view_setting_path=view_setting_path)
-        vis.capture_pcd_with_view_params(pcd=generated_pcd, pcd_path=gen_pcd_path + ".png",
-                                         view_setting_path=view_setting_path)
+        #vis.capture_pcd_with_view_params(pcd=original_pcd, pcd_path=ground_pcd_path + ".png",
+        #                                 view_setting_path=view_setting_path)
+        #vis.capture_pcd_with_view_params(pcd=generated_pcd, pcd_path=gen_pcd_path + ".png",
+        #                                 view_setting_path=view_setting_path)
 
         eval_results = self.evaluator.evaluate_sample(src_img_np, gen_img_np, ground_depth_map,
                                                       predict_ground_depth_map_aligned,
@@ -447,7 +448,7 @@ def main(args):
     for i in range(0, rgb_images.shape[0]):
         pipeline.run_pipeline(rgb_images[i], depth_maps[i], i, prompt=args.prompt,
                               guidance_scale=args.guidance_scale, strength=args.strength,
-                              num_inference_steps=args.num_inference_steps)
+                              num_inference_steps=args.num_inference_steps, display=args.display)
 
         if i > 0 and i % 5 == 0:
             pipeline.compute_macro_eval(prompt=args.prompt, num_inference_steps=args.num_inference_steps,
@@ -466,6 +467,7 @@ if __name__ == "__main__":
     parser.add_argument('--condition_type', type=str, default="depth")
     parser.add_argument('--multi_condition', type=bool, default=False)
     parser.add_argument('--cache_dir', type=str, default="")
+    parser.add_argument('--display', type=bool, default=False)
 
     args = parser.parse_args()
     main(args)
