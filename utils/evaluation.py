@@ -43,6 +43,8 @@ class Evaluator:
                "Pred-Gen-Abs-Rel", "Pred-Gen-Sqr-Rel", "Pred-Gen-RMSE", "Pred-Gen-RMSE-log", \
                "Pred-Gen-thresh-1", "Pred-Gen-thresh-2", "Pred-Gen-thresh-3"]
 
+    macro_columns = ['identifier', 'FID', 'IS_mean', 'IS_std']
+
     def __init__(self, condition_type="seg", prompt=ModelData.interior_design_prompt_1, cache_dir=""):
 
         if cache_dir:
@@ -250,8 +252,7 @@ class Evaluator:
         fid_score = self.fid.compute()
         inception_score = self.inception.compute()
 
-        columns = ['identifier', 'FID', 'IS_mean', 'IS_std']
-        df = pd.DataFrame(columns=columns)
+        df = pd.DataFrame(columns=self.macro_columns)
         df.loc[0] = [identifier, fid_score.item(), inception_score[0].item(), inception_score[1].item()]
 
         if save_path:

@@ -246,7 +246,6 @@ class ControlNetModelWrapper:
         predict_ground_depth_path = self.result_root + f"ControlNet/predicted_ground_truth_depth_maps/{i}_predict_ground_depth"
 
         ground_pcd_path = self.result_root + f"ground_point_clouds/{i}_ground_pcd"
-        view_setting_path = self.result_root + "view_setting.json"
 
         gen_img_save_name = self.result_root + f"ControlNet/2d_images/{i}_generated_from_{condition_id}.png"
         comparison_save_name = self.result_root + f"ControlNet/2d_images/{i}_comparison_from_{condition_id}.png"

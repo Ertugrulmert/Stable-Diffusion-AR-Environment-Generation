@@ -1,9 +1,13 @@
+import os, sys
+
+parent_dir = os.path.dirname(os.path.dirname(__file__))
+sys.path.append(parent_dir)
+
 from PIL import Image
 import numpy as np
 import open3d as o3d
 import cv2
 import matplotlib.pyplot as plt
-import os
 import json
 
 import matplotlib as mpl

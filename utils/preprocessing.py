@@ -20,7 +20,44 @@ import re
 from csv import writer
 
 
-def prepare_nyu_data(rgb_img=None, condition_img=None, image_resolution=0):
+def extractDepth(x):
+    depthConfidence = (x >> 13) & 0x7
+    if (depthConfidence > 6): return 0
+    return x & 0x1FFF
+
+
+def prepare_arcore_data(rgb_filepath, depth_filepath, image_resolution=512,
+                        depth_H=90, depth_W=160):
+    rgb_image = cv2.imread(rgb_filepath)
+    rgb_image = cv2.rotate(rgb_image, cv2.ROTATE_90_CLOCKWISE)
+    rgb_image = cv2.flip(rgb_image, 0)
+    rgb_image = cv2.flip(rgb_image, 1)
+    rgb_image = cv2.cvtColor(rgb_image, cv2.COLOR_BGR2RGB)
+
+    depthData = np.fromfile(depth_filepath, dtype=np.uint16)
+    depthMap = np.array([extractDepth(x) for x in depthData]).reshape(depth_H, depth_W)
+    depthMap = cv2.rotate(depthMap, cv2.ROTATE_90_CLOCKWISE)
+
+
+    depthMap = np.float32(depthMap)
+    depthMap /= 1000
+
+    rgb_image_resized = resize_image(rgb_image, image_resolution)
+    rgb_H = rgb_image_resized.shape[0]
+
+    # depth image must be resized to have the same height as color image
+    depth_resized = resize_image(depthMap, rgb_H, ref_min=False)
+    d_w = depth_resized.shape[1]
+    rgb_w = rgb_image_resized.shape[1]
+
+    pad_val = int((rgb_w - d_w) / 2)
+
+    depth_padded = np.pad(depth_resized, ((0, 0), (pad_val, pad_val)), mode='constant')
+
+    return rgb_image_resized, depth_padded
+
+
+def prepare_nyu_data(rgb_img=None, condition_img=None, image_resolution=512):
     img_ = None
     if rgb_img is not None:
         # reshape
@@ -46,19 +83,33 @@ def prepare_nyu_data(rgb_img=None, condition_img=None, image_resolution=0):
 
 
 def align_midas(midas_pred, ground_truth):
-    ground_truth_invert = 1 / (ground_truth + 10e-6) # invert absolute depth with meters
+    ground_truth_invert = 1 / (ground_truth + 10e-6)  # invert absolute depth with meters
     x = midas_pred.copy().flatten()  # Midas Depth
     y = ground_truth_invert.copy().flatten()  # Realsense invert Depth
     A = np.vstack([x, np.ones(len(x))]).T
     s, t = np.linalg.lstsq(A, y, rcond=None)[0]
     midas_aligned_invert = midas_pred * s + t
-    midas_aligned = 1 /  (midas_aligned_invert + 10e-6)
+    midas_aligned = 1 / (midas_aligned_invert + 10e-6)
+
+    return midas_aligned
+
+
+def align_midas_withzeros(midas_pred, ground_truth):
+    nonzero = np.nonzero(ground_truth)
+
+    ground_truth_invert = 1 / (ground_truth[nonzero] + 10e-6)  # invert absolute depth with meters
+    x = midas_pred.copy()[nonzero].flatten()  # Midas Depth
+    y = ground_truth_invert.copy().flatten()
+    A = np.vstack([x, np.ones(len(x))]).T
+    s, t = np.linalg.lstsq(A, y, rcond=None)[0]
+    midas_aligned_invert = midas_pred * s + t
+    midas_aligned = 1 / (midas_aligned_invert + 10e-6)
 
     return midas_aligned
 
 
 def HWC3(x):
-    #assert x.dtype == np.uint8
+    # assert x.dtype == np.uint8
     if x.ndim == 2:
         x = x[:, :, None]
     assert x.ndim == 3
@@ -76,14 +127,17 @@ def HWC3(x):
         return y
 
 
-def resize_image(input_image, resolution):
+def resize_image(input_image, resolution, ref_min=True):
     if len(input_image.shape) == 3:
         H, W, C = input_image.shape
     else:
         H, W = input_image.shape
     H = float(H)
     W = float(W)
-    k = float(resolution) / min(H, W)
+    if ref_min:
+        k = float(resolution) / min(H, W)
+    else:
+        k = float(resolution) / max(H, W)
     H *= k
     W *= k
     H = int(np.round(H / 64.0)) * 64
@@ -93,8 +147,7 @@ def resize_image(input_image, resolution):
 
 
 # for nicer looking plot titles
-def break_up_string(text, line_limit = 50):
-
+def break_up_string(text, line_limit=50):
     char_count = 0
     new_text = ""
     for word in text.split():
@@ -102,10 +155,10 @@ def break_up_string(text, line_limit = 50):
             new_text = word
             char_count = len(word)
         elif len(word) + char_count < line_limit:
-            new_text = " ".join([new_text,word])
+            new_text = " ".join([new_text, word])
             char_count += len(word)
         else:
-            new_text = "\n".join([new_text,word])
+            new_text = "\n".join([new_text, word])
             char_count = len(word)
     return new_text
 
@@ -154,10 +207,7 @@ def prepare_nyu_controlnet_seg_nyu40(x, num_classes=50, image_resolution=512):
     return control_image, H, W
 
 
-
 # ---------------------
-
-
 
 
 # This is special function used for reading NYU pgm format
@@ -190,8 +240,8 @@ def load_nyu_rgbd(rgb_filename, d_filename):
     return rgbd_image
 
 
-def resize(value,img):
-    img = img.resize((value,value), Image.Resampling.LANCZOS)
+def resize(value, img):
+    img = img.resize((value, value), Image.Resampling.LANCZOS)
     return img
 
 
@@ -199,4 +249,3 @@ def prepare_from_path(img_path):
     img = Image.open(img_path)
     img = resize(512, img)
     return img
-

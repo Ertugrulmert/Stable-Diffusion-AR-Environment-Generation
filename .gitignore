@@ -54,6 +54,7 @@ MANIFEST
 # matrices
 *.npy
 *.mat
+*.txt
 
 
 *.pcd
