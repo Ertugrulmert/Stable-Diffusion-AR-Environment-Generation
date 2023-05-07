@@ -58,6 +58,10 @@ MANIFEST
 
 
 *.pcd
+*.ply
+*.obj
+*.gbx
+*.mtl
 
 
 # PyCharm

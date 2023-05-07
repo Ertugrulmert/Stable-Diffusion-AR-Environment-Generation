@@ -37,6 +37,7 @@ class ARCoreHandler:
         original_pcd = point_clouds.get_point_cloud(rgb_image, predict_ground_depth_map_aligned,
                                                     pcd_path=ground_pcd_path,
                                                     display=False)
+
         #small_pcd = original_pcd.voxel_down_sample(voxel_size=0.0007)
 
         #radii = [0.001, 0.005, 0.01]
@@ -89,7 +90,11 @@ class ARCoreHandler:
         ms.apply_filter("delete_non_visible_meshes")
         ms.compute_color_transfer_vertex_to_face()
         ms.compute_texcoord_parametrization_triangle_trivial_per_wedge()
-        ms.apply_filter('meshing_decimation_quadric_edge_collapse_with_texture', targetfacenum=10000)
+        ms.apply_filter('meshing_decimation_quadric_edge_collapse_with_texture', targetfacenum=1000)
+        ms.apply_filter('compute_matrix_from_scaling_or_normalization', axisx=10)
+        ms.apply_filter("apply_matrix_flip_or_swap_axis", flipz=True)
+
+
         ms.compute_texmap_from_color(textname=f"{i}_mesh", textw=512, texth=512)
         ms.save_current_mesh(full_mesh_path_obj)
 
