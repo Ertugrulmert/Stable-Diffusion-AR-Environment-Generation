@@ -25,8 +25,18 @@ def extractDepth(x):
     if (depthConfidence > 6): return 0
     return x & 0x1FFF
 
+def crop_image(image, crop_rate, croph =True, cropw=True):
+    if crop_rate <= 0 or crop_rate >= 0.5:
+        return image
 
-def prepare_arcore_data(rgb_filepath, depth_filepath, image_resolution=512,
+    h = image.shape[0]
+    w = image.shape[1]
+    crop_h = int(h * crop_rate) if croph else 0
+    crop_w = int(w * crop_rate) if cropw else 0
+    return image[crop_h:(h - crop_h), crop_w:(w - crop_w)]
+
+
+def prepare_arcore_data(rgb_filepath, depth_filepath, confidence_filepath=None, image_resolution=512, crop_rate=0.1,
                         depth_H=90, depth_W=160):
     rgb_image = cv2.imread(rgb_filepath)
     rgb_image = cv2.rotate(rgb_image, cv2.ROTATE_90_CLOCKWISE)
@@ -53,6 +63,13 @@ def prepare_arcore_data(rgb_filepath, depth_filepath, image_resolution=512,
     pad_val = int((rgb_w - d_w) / 2)
 
     depth_padded = np.pad(depth_resized, ((0, 0), (pad_val, pad_val)), mode='constant')
+
+    if crop_rate:
+        rgb_image_resized = crop_image(rgb_image_resized, crop_rate)
+        depth_padded = crop_image(depth_padded, crop_rate)
+
+        rgb_image_resized = resize_image(rgb_image_resized, image_resolution)
+        depth_padded = resize_image(depth_padded, image_resolution)
 
     return rgb_image_resized, depth_padded
 

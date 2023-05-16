@@ -39,8 +39,13 @@ def upload_file():
 
     timestamp = 0
 
+    cam_rotation = None
+
     if request.form.get("timestamp") is not None:
         timestamp = int(request.form.get("timestamp"))
+
+    if request.form.get("camRotation") is not None:
+        cam_rotation = [float(idx) for idx in request.form.get("camRotation").split(',')]
 
     if request.files.get("rgbImage") is not None and request.files.get("depthImage") is not None:
         f = request.files["rgbImage"]
@@ -53,7 +58,36 @@ def upload_file():
         depth_filepath = os.path.join(app.config['UPLOAD_FOLDER'], depth_filename)
         f.save(depth_filepath)
 
-        mesh_name, material_name, texture_name = handler.process_arcore_ground(rgb_filepath, depth_filepath, i=timestamp)
+        imageWidth = request.form.get("imageWidth")
+        imageHeight = request.form.get("imageHeight")
+
+        depthWidth = request.form.get("depthWidth")
+        depthHeight = request.form.get("depthHeight")
+
+        confidenceWidth = request.form.get("confidenceWidth")
+        confidenceHeight = request.form.get("confidenceHeight")
+
+        print(f"imageWidth: {imageWidth}")
+        print(f"imageHeight: {imageHeight}")
+        print(f"depthWidth: {depthWidth}")
+        print(f"depthHeight: {depthHeight}")
+        #print(f"confidenceWidth: {confidenceWidth}")
+        #print(f"confidenceHeight: {confidenceHeight}")
+        print(f"cam_rotation: {cam_rotation}")
+
+        if request.files.get("confidenceImage") is not None:
+            f = request.files["confidenceImage"]
+            confidence_filename = secure_filename(f.filename)
+            confidence_filepath = os.path.join(app.config['UPLOAD_FOLDER'], confidence_filename)
+            f.save(confidence_filepath)
+
+            mesh_name, material_name, texture_name = handler.process_arcore_ground(rgb_filepath, depth_filepath,
+                                                                                   cam_rotation, confidence_filepath,
+                                                                                   i=timestamp)
+
+        else:
+            mesh_name, material_name, texture_name = handler.process_arcore_ground(rgb_filepath, depth_filepath,
+                                                                                   cam_rotation, i=timestamp)
 
         return jsonify(isError=False,
                        message="Success, Mesh Created",

@@ -31,16 +31,17 @@ seed = 1825989188
 
 class ControlNetModelWrapper:
 
-    def __init__(self, condition_type="seg", multi_condition=False,
+    def __init__(self, condition_type="seg", multi_condition=False, only_ground=False,
                  depth_model_type="MiDaS",
                  result_root='./results/NYU/',
                  cache_dir=""):
         self.result_root = result_root
         self.multi_condition = multi_condition
         self.load_depth_model(model_type=depth_model_type, cache_dir=cache_dir)
-        self.load_condition_model(condition_type=condition_type, cache_dir=cache_dir)
-        self.load_controlnet(cache_dir=cache_dir)
-        self.evaluator = Evaluator(condition_type=self.condition_type, cache_dir=cache_dir)
+        if not only_ground:
+            self.load_condition_model(condition_type=condition_type, cache_dir=cache_dir)
+            self.load_controlnet(cache_dir=cache_dir)
+            self.evaluator = Evaluator(condition_type=self.condition_type, cache_dir=cache_dir)
 
     # Model Loading
 
