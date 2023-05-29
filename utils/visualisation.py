@@ -48,6 +48,43 @@ class Visualiser:
 
         plt.show()
 
+    def get_depth_heat_map_no_ground(predict_ground_depth_map, predict_depth_map, img_id=None, save_name=''):
+
+        depth_diff = predict_ground_depth_map - predict_depth_map
+
+        _min, _max = np.amin(predict_ground_depth_map), np.amax(predict_ground_depth_map)
+
+        fig, ax = plt.subplots(1, 3, figsize=(18, 6), layout='constrained')
+        ax[0].imshow(predict_ground_depth_map, vmin=_min, vmax=_max)
+        ax[1].imshow(predict_depth_map, vmin=_min, vmax=_max)
+
+        heat_min = -4
+        heat_max = 4
+
+        diff = ax[2].imshow(depth_diff, cmap='RdBu_r', vmin=heat_min, vmax=heat_max)
+
+        cbar = fig.colorbar(diff, ax=ax[2], shrink=0.6)
+        cbar.set_label('Predicted Ground Truth - Predicted Generated', rotation=90, labelpad=5)
+        cbar.ax.set_yticklabels(["{:.2}".format(i) + " m" for i in cbar.get_ticks()])  # set ticks of your format
+
+        ax[0].set_title('Predicted Ground Truth', fontsize=16)
+        ax[1].set_title('Generated', fontsize=16)
+        ax[2].set_title('Difference Heat Map', fontsize=16)
+
+        for a in ax:
+            a.set_xticks([])
+            a.set_yticks([])
+
+        if img_id is not None:
+            fig.suptitle(f"Depth Maps for Image - {img_id}", fontsize=18, y=0.97)
+        else:
+            fig.suptitle(f"Depth Maps", fontsize=18, y=0.97)
+
+        if save_name:
+            fig.savefig(save_name)
+
+        plt.show()
+
     def capture_pcd_with_view_params(pcd, pcd_path, view_setting_path):
         vis = o3d.visualization.Visualizer()
 

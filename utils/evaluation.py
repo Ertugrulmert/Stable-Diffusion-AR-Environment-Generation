@@ -43,6 +43,10 @@ class Evaluator:
                "Pred-Gen-Abs-Rel", "Pred-Gen-Sqr-Rel", "Pred-Gen-RMSE", "Pred-Gen-RMSE-log", \
                "Pred-Gen-thresh-1", "Pred-Gen-thresh-2", "Pred-Gen-thresh-3"]
 
+    noground_columns = ['id', 'LPIPS', 'CLIPScore',
+               "Pred-GR-Abs-Rel", "Pred-GR-Sqr-Rel", "Pred-GR-RMSE", "Pred-GR-RMSE-log", \
+               "Pred-GR-thresh-1", "Pred-GR-thresh-2", "Pred-GR-thresh-3"]
+
     macro_columns = ['identifier', 'FID', 'IS_mean', 'IS_std']
 
     def __init__(self, condition_type="seg", prompt=ModelData.interior_design_prompt_1, cache_dir=""):
@@ -247,6 +251,45 @@ class Evaluator:
             df.to_csv(save_path, mode='a', index=False, header=False)
 
         return df
+
+    def evaluate_sample_aligned_noground(self, src_img_np, gen_img_np, predict_ground_depth_map_aligned,
+                                         predict_depth_map_aligned, prompt="", id=0, save_path=""):
+        if prompt:
+            self.set_prompt(prompt)
+        df = pd.DataFrame(columns=self.noground_columns)
+
+        # creating image tensors
+        src_img_tensor = torch.from_numpy(np.moveaxis(src_img_np, 2, 0)).unsqueeze(0)
+        gen_img_tensor = torch.from_numpy(np.moveaxis(gen_img_np, 2, 0)).unsqueeze(0)
+
+        # these metrics require full dataset so they will be computed after all iterations are over
+        self.fid.update(src_img_tensor, real=True)
+        self.fid.update(gen_img_tensor, real=False)
+        self.inception.update(gen_img_tensor)
+
+        # -- RGB Image Generation Evaluation
+
+        lpips_score = self.lpips(src_img_tensor.float() / 255, gen_img_tensor.float() / 255)
+        clip_score = self.clip(gen_img_tensor, self.prompt).item()
+
+        # -- Depth Map Evaluation
+
+        # -- Predicted Ground vs Predicted Generated
+
+        pg_pgen_abs_rel, pg_pgen_sq_rel, pg_pgen_rmse, pg_pgen_rmse_log, pg_pgen_a1, pg_pgen_a2, pg_pgen_a3 = compute_errors(
+            predict_ground_depth_map_aligned, predict_depth_map_aligned)
+
+        df.loc[0] = [id,
+                     lpips_score.item(),
+                     clip_score,
+                     pg_pgen_abs_rel, pg_pgen_sq_rel, pg_pgen_rmse, pg_pgen_rmse_log, pg_pgen_a1, pg_pgen_a2,
+                     pg_pgen_a3]
+
+        if save_path:
+            df.to_csv(save_path, mode='a', index=False, header=False)
+
+        return df
+
 
     def compute_macro_metrics(self, identifier="full", save_path=""):
         fid_score = self.fid.compute()

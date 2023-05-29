@@ -180,12 +180,13 @@ def break_up_string(text, line_limit=50):
     return new_text
 
 
-def prepare_nyu_controlnet_depth(x, is_nyu_ground=True, image_resolution=512):
+def prepare_nyu_controlnet_depth(x, is_nyu=False, image_resolution=512):
     new_img = x
 
-    if is_nyu_ground:
+    if is_nyu:
         new_img = new_img * 25.5
-        new_img = 1 / (new_img + 10e-6)
+
+    new_img = 1 / (new_img.astype(np.float32) + 10e-6)
 
     new_img -= np.min(new_img)
     new_img /= np.max(new_img)
