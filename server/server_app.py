@@ -15,7 +15,7 @@ ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'csv'}
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-handler = ARCoreHandler(data_root=UPLOAD_FOLDER)
+handler = ARCoreHandler(data_root=UPLOAD_FOLDER, only_ground=False)
 
 
 # to display the connection status
@@ -64,8 +64,8 @@ def upload_file():
         depthWidth = request.form.get("depthWidth")
         depthHeight = request.form.get("depthHeight")
 
-        confidenceWidth = request.form.get("confidenceWidth")
-        confidenceHeight = request.form.get("confidenceHeight")
+        #confidenceWidth = request.form.get("confidenceWidth")
+        #confidenceHeight = request.form.get("confidenceHeight")
 
         print(f"imageWidth: {imageWidth}")
         print(f"imageHeight: {imageHeight}")
@@ -74,6 +74,14 @@ def upload_file():
         #print(f"confidenceWidth: {confidenceWidth}")
         #print(f"confidenceHeight: {confidenceHeight}")
         print(f"cam_rotation: {cam_rotation}")
+
+        only_ground = False
+        if request.files.get("isGenerative") is not None:
+            only_ground = request.files.get("isGenerative") == 'false'
+
+        prompt = ""
+        if request.files.get("prompt") is not None:
+            prompt = request.files.get("prompt")
 
         if request.files.get("confidenceImage") is not None:
             f = request.files["confidenceImage"]
@@ -86,8 +94,10 @@ def upload_file():
                                                                                    i=timestamp)
 
         else:
-            mesh_name, material_name, texture_name = handler.process_arcore_ground(rgb_filepath, depth_filepath,
-                                                                                   cam_rotation, i=timestamp)
+            mesh_name, material_name, texture_name = handler.process_arcore_generative(rgb_filepath, depth_filepath,
+                                                                                       cam_rotation, i=timestamp,
+                                                                                       only_ground=only_ground,
+                                                                                       prompt=prompt)
 
         return jsonify(isError=False,
                        message="Success, Mesh Created",
@@ -163,4 +173,4 @@ def download_file(filename):
 if __name__ == '__main__':
     app.secret_key = 'super secret key'
     app.config['SESSION_TYPE'] = 'filesystem'
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=False)
