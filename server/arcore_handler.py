@@ -1,11 +1,7 @@
-import numpy as np
-import cv2
-import os, sys, io, time
-import matplotlib.pyplot as plt
+import io
 from utils.preprocessing import *
 from models.controlnet_model_wrapper import ControlNetModelWrapper
 from models_3d import point_clouds, mesh_processing
-import pymeshlab
 
 parent_dir = os.path.dirname(os.path.dirname(__file__))
 

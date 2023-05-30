@@ -280,6 +280,8 @@ class ControlNetModelWrapper:
         end = time.time()
         print(f"get_point_cloud | time: {end - start}")
 
+        print(f"in arcore, only_ground {only_ground}")
+
         if only_ground:
             return ground_pcd_path, center_depth
 

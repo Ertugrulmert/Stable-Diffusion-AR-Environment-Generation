@@ -1,4 +1,4 @@
-import os, sys
+import os, sys, argparse
 from flask import Flask, flash, request, redirect, url_for, send_from_directory, jsonify, Response
 from werkzeug.utils import secure_filename
 
@@ -15,7 +15,7 @@ ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'csv'}
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-handler = ARCoreHandler(data_root=UPLOAD_FOLDER, only_ground=False)
+handler = None #ARCoreHandler(data_root=UPLOAD_FOLDER, only_ground=False)
 
 
 # to display the connection status
@@ -85,6 +85,8 @@ def upload_file():
         if request.form.get("isGenerative") is not None:
             print(request.form.get("isGenerative"))
             only_ground = request.files.get("isGenerative") == 'false'
+
+        print(f"only_ground {only_ground}")
 
         if request.files.get("confidenceImage") is not None:
             f = request.files["confidenceImage"]
@@ -174,6 +176,15 @@ def download_file(filename):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--cache_dir', type=str, default="")
+    args = parser.parse_args()
+
+    if args.cache_dir:
+        handler = ARCoreHandler(data_root=UPLOAD_FOLDER, cache_dir = args.cache_dir, only_ground=False)
+    else:
+        handler = ARCoreHandler(data_root=UPLOAD_FOLDER, only_ground=False)
+
     app.secret_key = 'super secret key'
     app.config['SESSION_TYPE'] = 'filesystem'
     app.run(host="0.0.0.0", port=5000, debug=False)
