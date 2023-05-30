@@ -46,7 +46,7 @@ class ControlNetModelWrapper:
         if not only_ground:
             self.load_condition_model(condition_type=condition_type, cache_dir=cache_dir)
             self.load_controlnet(cache_dir=cache_dir)
-            self.evaluator = Evaluator(condition_type=self.condition_type, cache_dir=cache_dir)
+            self.evaluator = Evaluator(condition_type=self.condition_type, multi_condition=multi_condition, cache_dir=cache_dir)
 
     # Model Loading
 

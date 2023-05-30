@@ -36,6 +36,7 @@ def upload_file():
         # check if the post request has the file part
         print(request)
         print(request.files)
+        print(request.form)
 
     timestamp = 0
 
@@ -46,6 +47,11 @@ def upload_file():
 
     if request.form.get("camRotation") is not None:
         cam_rotation = [float(idx) for idx in request.form.get("camRotation").split(',')]
+
+    prompt = ""
+    if request.form.get("prompt") is not None:
+        prompt = request.files.get("prompt")
+        print(f"Received prompt: {prompt}")
 
     if request.files.get("rgbImage") is not None and request.files.get("depthImage") is not None:
         f = request.files["rgbImage"]
@@ -75,13 +81,10 @@ def upload_file():
         #print(f"confidenceHeight: {confidenceHeight}")
         print(f"cam_rotation: {cam_rotation}")
 
-        only_ground = False
-        if request.files.get("isGenerative") is not None:
+        only_ground = True
+        if request.form.get("isGenerative") is not None:
+            print(request.form.get("isGenerative"))
             only_ground = request.files.get("isGenerative") == 'false'
-
-        prompt = ""
-        if request.files.get("prompt") is not None:
-            prompt = request.files.get("prompt")
 
         if request.files.get("confidenceImage") is not None:
             f = request.files["confidenceImage"]
