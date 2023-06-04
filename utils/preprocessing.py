@@ -52,6 +52,7 @@ def prepare_arcore_data(rgb_filepath, depth_filepath, confidence_filepath=None, 
     depthMap = np.float32(depthMap)
     depthMap /= 1000
 
+    original_image_W = rgb_image.shape[1]
     rgb_image_resized = resize_image(rgb_image, image_resolution)
     rgb_H = rgb_image_resized.shape[0]
 
@@ -71,7 +72,7 @@ def prepare_arcore_data(rgb_filepath, depth_filepath, confidence_filepath=None, 
         rgb_image_resized = resize_image(rgb_image_resized, image_resolution)
         depth_padded = resize_image(depth_padded, image_resolution)
 
-    return rgb_image_resized, depth_padded
+    return rgb_image_resized, depth_padded, original_image_W
 
 
 def prepare_nyu_data(rgb_img=None, condition_img=None, image_resolution=512):
@@ -100,6 +101,9 @@ def prepare_nyu_data(rgb_img=None, condition_img=None, image_resolution=512):
 
 
 def align_midas(midas_pred, ground_truth):
+    print(f"midas_pred_shape: {midas_pred.shape}")
+    print(f"ground_truth_shape: {ground_truth.shape}")
+
     ground_truth_invert = 1 / (ground_truth + 10e-6)  # invert absolute depth with meters
     x = midas_pred.copy().flatten()  # Midas Depth
     y = ground_truth_invert.copy().flatten()  # Realsense invert Depth
@@ -113,6 +117,9 @@ def align_midas(midas_pred, ground_truth):
 
 def align_midas_withzeros(midas_pred, ground_truth):
     nonzero = np.nonzero(ground_truth)
+
+    print(f"midas_pred_shape: {midas_pred.shape}")
+    print(f"ground_truth_shape: {ground_truth.shape}")
 
     ground_truth_invert = 1 / (ground_truth[nonzero] + 10e-6)  # invert absolute depth with meters
     x = midas_pred.copy()[nonzero].flatten()  # Midas Depth
@@ -183,10 +190,10 @@ def break_up_string(text, line_limit=50):
 def prepare_nyu_controlnet_depth(x, is_nyu=False, image_resolution=512):
     new_img = x
 
-    if is_nyu:
-        new_img = new_img * 25.5
+    #if is_nyu:
+    #    new_img = new_img * 25.5
 
-    new_img = 1 / (new_img.astype(np.float32) + 10e-6)
+    #new_img = 1 / (new_img.astype(np.float32) + 10e-6)
 
     new_img -= np.min(new_img)
     new_img /= np.max(new_img)

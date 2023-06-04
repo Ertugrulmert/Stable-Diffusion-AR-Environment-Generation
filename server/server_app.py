@@ -84,7 +84,7 @@ def upload_file():
         only_ground = True
         if request.form.get("isGenerative") is not None:
             print(request.form.get("isGenerative"))
-            only_ground = request.files.get("isGenerative") == 'false'
+            only_ground = request.form.get("isGenerative") == 'false'
 
         print(f"only_ground {only_ground}")
 

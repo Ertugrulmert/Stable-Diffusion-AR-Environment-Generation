@@ -17,10 +17,14 @@ from models.model_data import *
 def compute_errors(gt, pred):
     """Computation of error metrics between predicted and ground truth depths
     """
+    print(f"eval gt max: {gt.max()} | min: {gt.min()}")
+
+    num_valid_pixels = np.sum(gt > 0)
+
     thresh = np.maximum((gt / pred), (pred / gt))
-    a1 = (thresh < 1.25).mean()
-    a2 = (thresh < 1.25 ** 2).mean()
-    a3 = (thresh < 1.25 ** 3).mean()
+    a1 = (thresh < 1.25).sum() / num_valid_pixels
+    a2 = (thresh < 1.25 ** 2).sum() / num_valid_pixels
+    a3 = (thresh < 1.25 ** 3).sum() / num_valid_pixels
 
     rmse = (gt - pred) ** 2
     rmse = np.sqrt(rmse.mean())
@@ -28,9 +32,9 @@ def compute_errors(gt, pred):
     rmse_log = (np.log(gt) - np.log(pred)) ** 2
     rmse_log = np.sqrt(rmse_log.mean())
 
-    abs_rel = np.mean(np.abs(gt - pred) / gt)
+    abs_rel = np.sum(np.abs(gt - pred) / gt) / num_valid_pixels
 
-    sq_rel = np.mean(((gt - pred) ** 2) / gt)
+    sq_rel = np.sum(((gt - pred) ** 2) / gt) / num_valid_pixels
 
     return abs_rel, sq_rel, rmse, rmse_log, a1, a2, a3
 
@@ -56,8 +60,8 @@ class Evaluator:
 
         self.condition_type = condition_type if not multi_condition else "multi_con"
         self.prompt = self.set_prompt(prompt)
-        self.lpips = LearnedPerceptualImagePatchSimilarity(net_type='vgg')
-        self.fid = FrechetInceptionDistance(feature=64)
+        self.lpips = LearnedPerceptualImagePatchSimilarity(net_type='vgg', normalize=True)
+        self.fid = FrechetInceptionDistance()#(feature=64)
         self.inception = InceptionScore()
         self.clip = CLIPScore(model_name_or_path="openai/clip-vit-large-patch14")
 
@@ -205,8 +209,8 @@ class Evaluator:
             self.set_prompt(prompt)
         df = pd.DataFrame(columns=self.columns)
 
-        predict_ground_depth_map_aligned = align_midas(predict_ground_depth_map, ground_depth_map)
-        predict_depth_map_aligned = align_midas(predict_depth_map, ground_depth_map)
+        #predict_ground_depth_map_aligned = align_midas(predict_ground_depth_map, ground_depth_map)
+        #predict_depth_map_aligned = align_midas(predict_depth_map, ground_depth_map)
 
         # creating image tensors
         src_img_tensor = torch.from_numpy(np.moveaxis(src_img_np, 2, 0)).unsqueeze(0)
@@ -227,17 +231,17 @@ class Evaluator:
         # -- Ground vs Predicted Ground
 
         g_pg_abs_rel, g_pg_sq_rel, g_pg_rmse, g_pg_rmse_log, g_pg_a1, g_pg_a2, g_pg_a3 = compute_errors(
-            ground_depth_map, predict_ground_depth_map_aligned)
+            ground_depth_map, predict_ground_depth_map)
 
         # -- Predicted Ground vs Predicted Generated
 
         pg_pgen_abs_rel, pg_pgen_sq_rel, pg_pgen_rmse, pg_pgen_rmse_log, pg_pgen_a1, pg_pgen_a2, pg_pgen_a3 = compute_errors(
-            predict_ground_depth_map_aligned, predict_depth_map_aligned)
+            predict_ground_depth_map, predict_depth_map)
 
         # -- Ground vs Predicted Generated
 
         g_pgen_abs_rel, g_pgen_sq_rel, g_pgen_rmse, g_pgen_rmse_log, g_pgen_a1, g_pgen_a2, g_pgen_a3 = compute_errors(
-            ground_depth_map, predict_depth_map_aligned)
+            ground_depth_map, predict_depth_map)
 
         df.loc[0] = [id,
                      lpips_score.item(),

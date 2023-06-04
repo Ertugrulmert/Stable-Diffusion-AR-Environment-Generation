@@ -14,10 +14,33 @@ class ModelData:
         'normal': 'lllyasviel/sd-controlnet-normal',
     }
 
+
+    PROMPT_LIST = [
+        # ---- Prompts taken from the "SceneScape: Text-Driven Consistent Scene Generation" paper
+
+        "a dimly lit library, with rows upon rows of leather-bound books and dark wooden shelves",
+        "A grand, marble staircase spirals up to a vaulted ceiling in a grand entrance hall of a palace.",
+        "POV, haunted house, dark, wooden door, spider webs, skeletons",
+        "indoor scene, interior, candy house, fantasy, beautiful, masterpiece, best quality",
+        "inside a castle made of ice, beautiful photo, masterpiece",
+        "walkthrough, inside a medieval forge, metal, fire, beautiful photo, masterpiece",
+        "walkthrough, sci-fi ship interiors, corridors,amazing quality, masterpiece, beautiful scenery, best quality",
+        "POV, cave, pools, water, dark cavern, inside a cave, beautiful scenery, best quality",
+
+        # ---- Prompts taken from the "Text2Room: Extracting Textured 3D Meshes from 2D Text-to-Image Models" paper
+        "Editorial Style Photo, Coastal Bathroom, Clawfoot Tub, Seashell, Wicker, Mosaic Tile, Blue and White"
+        "A living room with a lit furnace, couch, and cozy curtains, bright lamps that make the room look well-lit",
+        "Editorial Style Photo, Modern Living Room, Large Window, Leather, Glass, Metal, Wood Paneling, Apartment",
+        "Editorial Style Photo, Modern Nursery, Table Lamp, Rocking Chair, Tree Wall Decal, Wood, Cotton, Faux Fur",
+        "Editorial Style Photo, Industrial Home Office, Steel Shelves, Concrete, Metal, Edison Bulbs, Exposed Ductwork",
+        "a bedroom with a king-size bed and a large wardrobe",
+    ]
+
+
     interior_design_prompt_1 = "Intricate, Ornate, Embellished, Elaborate, Detailed, Decorative, Intricately-crafted, Luxurious, Ornamented, and Artistic cloak, open book, sparks, cozy library in background, furniture, fire place, food, wine, pet, chandelier, High Definition, Night time, Photorealism, realistic"
     interior_design_prompt_2 = "Residential home high end futuristic interior, olson kundig, Interior Design by Dorothy Draper, maison de verre, axel vervoordt, award winning photography of an indoor-outdoor living library space, minimalist modern designs, high end indoor/outdoor residential living space, rendered in vray, rendered in octane, rendered in unreal engine, architectural photography, photorealism, featured in dezeen, cristobal palma. 5 chaparral landscape outside, black surfaces/textures for furnishings in outdoor space"
 
-    additional_prompt = 'best quality, extremely detailed'
+    additional_prompt = ',a detailed high-quality professional image'
     negative_prompt = 'longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality'
 
     """ADE20K palette that maps each class to RGB values."""

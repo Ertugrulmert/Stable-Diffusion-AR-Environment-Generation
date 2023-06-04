@@ -46,7 +46,7 @@ def process_mesh_marching_cubes(ground_pcd_path, full_mesh_path_obj, i, center_d
     # ms.apply_filter("compute_matrix_from_rotation", rotaxis="Y axis", angle=cam_rotation[1])
     # ms.apply_filter("compute_matrix_from_rotation", rotaxis="Z axis", angle=-1*cam_rotation[2])
 
-    ms.apply_filter('compute_matrix_from_scaling_or_normalization', axisx=10)
+    ms.apply_filter('compute_matrix_from_scaling_or_normalization', axisx=20)
     ms.apply_filter("apply_matrix_flip_or_swap_axis", flipx=True)
     ms.apply_filter("compute_matrix_from_rotation", rotaxis="Y axis", angle=180)
 
