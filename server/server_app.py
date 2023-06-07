@@ -50,7 +50,7 @@ def upload_file():
 
     prompt = ""
     if request.form.get("prompt") is not None:
-        prompt = request.files.get("prompt")
+        prompt = request.form.get("prompt")
         print(f"Received prompt: {prompt}")
 
     if request.files.get("rgbImage") is not None and request.files.get("depthImage") is not None:
@@ -178,12 +178,15 @@ def download_file(filename):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--cache_dir', type=str, default="")
+    parser.add_argument('--resolution', type=int, default=256)
+    parser.add_argument('--num_steps', type=int, default=30)
     args = parser.parse_args()
 
     if args.cache_dir:
-        handler = ARCoreHandler(data_root=UPLOAD_FOLDER, cache_dir = args.cache_dir, only_ground=False)
+        handler = ARCoreHandler(data_root=UPLOAD_FOLDER, resolution=args.resolution, num_steps=args.num_steps, cache_dir=args.cache_dir,
+                                only_ground=False)
     else:
-        handler = ARCoreHandler(data_root=UPLOAD_FOLDER, only_ground=False)
+        handler = ARCoreHandler(data_root=UPLOAD_FOLDER, resolution=args.resolution, num_steps=args.num_steps, only_ground=False)
 
     app.secret_key = 'super secret key'
     app.config['SESSION_TYPE'] = 'filesystem'

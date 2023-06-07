@@ -25,7 +25,8 @@ def extractDepth(x):
     if (depthConfidence > 6): return 0
     return x & 0x1FFF
 
-def crop_image(image, crop_rate, croph =True, cropw=True):
+
+def crop_image(image, crop_rate, croph=True, cropw=True):
     if crop_rate <= 0 or crop_rate >= 0.5:
         return image
 
@@ -36,7 +37,7 @@ def crop_image(image, crop_rate, croph =True, cropw=True):
     return image[crop_h:(h - crop_h), crop_w:(w - crop_w)]
 
 
-def prepare_arcore_data(rgb_filepath, depth_filepath, confidence_filepath=None, image_resolution=512, crop_rate=0.1,
+def prepare_arcore_data(rgb_filepath, depth_filepath, confidence_filepath=None, image_resolution=512, crop_rate=0,
                         depth_H=90, depth_W=160):
     rgb_image = cv2.imread(rgb_filepath)
     rgb_image = cv2.rotate(rgb_image, cv2.ROTATE_90_CLOCKWISE)
@@ -48,35 +49,78 @@ def prepare_arcore_data(rgb_filepath, depth_filepath, confidence_filepath=None, 
     depthMap = np.array([extractDepth(x) for x in depthData]).reshape(depth_H, depth_W)
     depthMap = cv2.rotate(depthMap, cv2.ROTATE_90_CLOCKWISE)
 
+    print(f"prepare_arcore_data depthMap max: {depthMap.max()} | min: {depthMap.min()}")
 
     depthMap = np.float32(depthMap)
+
     depthMap /= 1000
+
+    print(f"original image shape: {rgb_image.shape}")
+
+    """
 
     original_image_W = rgb_image.shape[1]
     rgb_image_resized = resize_image(rgb_image, image_resolution)
     rgb_H = rgb_image_resized.shape[0]
 
     # depth image must be resized to have the same height as color image
-    depth_resized = resize_image(depthMap, rgb_H, ref_min=False)
+    depth_resized = resize_image(depthMap, rgb_H, ref_min=False, is_depth=True)
     d_w = depth_resized.shape[1]
     rgb_w = rgb_image_resized.shape[1]
+
+    print(f"image before crop shape: {rgb_image_resized.shape}")
 
     pad_val = int((rgb_w - d_w) / 2)
 
     depth_padded = np.pad(depth_resized, ((0, 0), (pad_val, pad_val)), mode='constant')
+    
+    """
+    rgb_H = rgb_image.shape[0]
+    # depth image must be resized initially to have the same height as color image
+    print(f"before initial resize depth: {depthMap.shape}")
+    depth_resized = resize_image(depthMap, rgb_H, ref_width=False, is_depth=True, round=False)
+    print(f"after initial resize depth: {depth_resized.shape}")
+    d_w = depth_resized.shape[1]
+    rgb_w = rgb_image.shape[1]
+
+    print(f"before initial crop rgb: {rgb_image.shape}")
+
+    rgb_crop_val = int((rgb_w - d_w) / 2)
+    rgb_image = rgb_image[:,rgb_crop_val:rgb_w-rgb_crop_val,:]
+    print(f"initial cropped rgb: {rgb_image.shape}")
+
+    # adjust according to crop for 64
+    original_image_W = rgb_image.shape[1] - rgb_image.shape[1] % 64
+
+    # resize to desired resolution
+    rgb_image_resized = resize_image(rgb_image, image_resolution, crop=True)
+    depth_resized = resize_image(depth_resized, image_resolution, is_depth=True, crop=True) #ref_min=False,
+
+    print(f"after res resize rgb: {rgb_image_resized.shape}")
+    print(f"after res resize depth: {depth_resized.shape}")
+
 
     if crop_rate:
         rgb_image_resized = crop_image(rgb_image_resized, crop_rate)
-        depth_padded = crop_image(depth_padded, crop_rate)
+        depth_resized = crop_image(depth_resized, crop_rate)
+
+        original_image_W = int(original_image_W * (1 - 2 * crop_rate))
+
+        print(f"w cut down to: {original_image_W}")
+        print(f"image after crop shape: {rgb_image_resized.shape}")
 
         rgb_image_resized = resize_image(rgb_image_resized, image_resolution)
-        depth_padded = resize_image(depth_padded, image_resolution)
+        print(f"image after crop resize shape: {rgb_image_resized.shape}")
+        depth_resized = resize_image(depth_resized, image_resolution, is_depth=True)
 
-    return rgb_image_resized, depth_padded, original_image_W
+        print(f"prepare_arcore_data after crop_rate max: {depth_resized.max()} | min: {depth_resized.min()}")
+
+    return rgb_image_resized, depth_resized, original_image_W
 
 
 def prepare_nyu_data(rgb_img=None, condition_img=None, image_resolution=512):
     img_ = None
+    original_image_W = image_resolution
     if rgb_img is not None:
         # reshape
         img_ = np.empty([rgb_img.shape[2], rgb_img.shape[1], 3])
@@ -84,8 +128,10 @@ def prepare_nyu_data(rgb_img=None, condition_img=None, image_resolution=512):
         img_[:, :, 1] = rgb_img[1, :, :].T
         img_[:, :, 2] = rgb_img[2, :, :].T
         img_ = img_[10:-9, 10:-9]
+        original_image_W = img_.shape[1]
         if image_resolution:
-            img_ = resize_image(img_, image_resolution)
+            original_image_W = img_.shape[1] - img_.shape[1] % 64
+            img_ = resize_image(img_, image_resolution, crop=True)
 
         img_ = img_.astype(np.uint8)
 
@@ -95,9 +141,9 @@ def prepare_nyu_data(rgb_img=None, condition_img=None, image_resolution=512):
         condition_np = condition_np.astype(np.float32)
         condition_np = condition_np[10:-9, 10:-9]
         if image_resolution:
-            condition_np = resize_image(condition_np, image_resolution)
+            condition_np = resize_image(condition_np, image_resolution, is_depth=True, crop=True)
 
-    return img_, condition_np
+    return img_, condition_np, original_image_W
 
 
 def align_midas(midas_pred, ground_truth):
@@ -129,6 +175,9 @@ def align_midas_withzeros(midas_pred, ground_truth):
     midas_aligned_invert = midas_pred * s + t
     midas_aligned = 1 / (midas_aligned_invert + 10e-6)
 
+    print(f"align_midas_withzeros ground_truth max: {ground_truth.max()} | min: {ground_truth.min()}")
+    print(f"align_midas_withzeros midas_aligned max: {midas_aligned.max()} | min: {midas_aligned.min()}")
+
     return midas_aligned
 
 
@@ -151,22 +200,56 @@ def HWC3(x):
         return y
 
 
-def resize_image(input_image, resolution, ref_min=True):
+def resize_image(input_image, resolution, is_depth=False, ref_width=True, round =True, crop=False, scale_factor=None):
     if len(input_image.shape) == 3:
         H, W, C = input_image.shape
     else:
         H, W = input_image.shape
     H = float(H)
     W = float(W)
-    if ref_min:
-        k = float(resolution) / min(H, W)
+
+    if crop:
+        H_crop = int(H) % 64
+        W_crop = int(W) % 64
+        print(f"before 64 crop: {input_image.shape}")
+        input_image = input_image[int(H_crop / 2):int(H - H_crop / 2), int(W_crop / 2):int(W - W_crop / 2)]
+
+        H = input_image.shape[0]
+        W = input_image.shape[1]
+        H = float(H)
+        W = float(W)
+
+        print(f"after 64 crop: {input_image.shape}")
+
+    if scale_factor == None:
+        if ref_width:
+            print(f"ref width")
+            k = float(resolution) / W
+        else:
+            print(f"ref hight")
+            k = float(resolution) / H
     else:
-        k = float(resolution) / max(H, W)
+        k = scale_factor
+
+    print(f"k for resize: {k}")
     H *= k
     W *= k
-    H = int(np.round(H / 64.0)) * 64
-    W = int(np.round(W / 64.0)) * 64
-    img = cv2.resize(input_image, (W, H), interpolation=cv2.INTER_LANCZOS4 if k > 1 else cv2.INTER_AREA)
+    if round:
+        print(f"will round")
+
+        H = int(np.round(H / 64.0)) * 64
+        W = int(np.round(W / 64.0)) * 64
+    else:
+        print(f"wont round")
+        H = int(H)
+        W = int(W)
+    print(f"before resize: {input_image.shape}")
+    print(f"resolution: {resolution}")
+    if is_depth:
+        img = cv2.resize(input_image, (W, H), interpolation=cv2.INTER_LINEAR)
+    else:
+        img = cv2.resize(input_image, (W, H), interpolation=cv2.INTER_LANCZOS4 if k > 1 else cv2.INTER_AREA)
+    print(f"after resize: {img.shape}")
     return img
 
 
@@ -188,20 +271,31 @@ def break_up_string(text, line_limit=50):
 
 
 def prepare_nyu_controlnet_depth(x, is_nyu=False, image_resolution=512):
-    new_img = x
+    new_img = x.astype(np.float32)
 
-    #if is_nyu:
+    # if is_nyu:
     #    new_img = new_img * 25.5
 
-    #new_img = 1 / (new_img.astype(np.float32) + 10e-6)
+    # new_img = 1 / (new_img.astype(np.float32) + 10e-6)
 
-    new_img -= np.min(new_img)
+    nonzero = np.nonzero(new_img)
+    #new_img -= np.min(new_img)
+    new_img[nonzero] -= np.min(new_img[nonzero])
     new_img /= np.max(new_img)
     new_img = (new_img * 255.0).clip(0, 255).astype(np.uint8)
     new_img = HWC3(new_img)
-    temp_img = resize_image(new_img, image_resolution)
-    H, W = temp_img.shape[:2]
-    new_img = cv2.resize(new_img, (W, H), interpolation=cv2.INTER_LINEAR)
+    if image_resolution:
+        temp_img = resize_image(new_img, image_resolution)
+        H, W = temp_img.shape[:2]
+        new_img = cv2.resize(new_img, (W, H), interpolation=cv2.INTER_LINEAR)
+
+    else:
+        H, W = new_img.shape[:2]
+
+    print(f"new image shape: {new_img.shape}")
+    print(f"new image max: {new_img.max()} min: {new_img.min()}")
+
+    print(f"new image H: {H} W: {W}")
 
     # detected_map = np.moveaxis(detected_map, -1, 0)
 
@@ -211,6 +305,8 @@ def prepare_nyu_controlnet_depth(x, is_nyu=False, image_resolution=512):
 
     # result = torch.stack([control for _ in range(num_samples)], dim=0)
     control_image = Image.fromarray(np.uint8(new_img))
+
+    control_image.show()
 
     return control_image, H, W
 

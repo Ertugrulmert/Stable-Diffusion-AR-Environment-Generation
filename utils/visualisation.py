@@ -9,44 +9,58 @@ import json
 
 class Visualiser:
 
-    def get_depth_heat_map(ground_depth_map, predict_ground_depth_map, predict_depth_map, img_id=None, save_name=''):
+    def get_depth_heat_map(ground_depth_map, predict_ground_depth_map, predict_depth_map, img_id=None,
+                           save_name='', display=False):
 
-        depth_diff = ground_depth_map - predict_depth_map
+        ground_predict_ground_diff = ground_depth_map - predict_ground_depth_map
+        predict_ground_gen_diff = predict_ground_depth_map - predict_depth_map
+        ground_gen_diff = ground_depth_map - predict_depth_map
 
         _min, _max = np.amin(ground_depth_map), np.amax(ground_depth_map)
 
-        fig, ax = plt.subplots(1, 4, figsize=(24, 6), layout='constrained')
-        ax[0].imshow(ground_depth_map, vmin=_min, vmax=_max)
-        ax[1].imshow(predict_ground_depth_map, vmin=_min, vmax=_max)
-        ax[2].imshow(predict_depth_map, vmin=_min, vmax=_max)
+        fig, ax = plt.subplots(2, 3, figsize=(6*3 + 3, 6*3 + 3), layout='constrained')
+        ax[0,0].imshow(ground_depth_map, vmin=_min, vmax=_max)
+        ax[0,1].imshow(predict_ground_depth_map, vmin=_min, vmax=_max)
+        row_0 = ax[0,2].imshow(predict_depth_map, vmin=_min, vmax=_max)
 
-        heat_min = -4
-        heat_max = 4
+        ax[0,0].set_title('Ground Truth', fontsize=16)
+        ax[0,1].set_title('Estimated Ground Truth', fontsize=16)
+        ax[0,2].set_title('Generated', fontsize=16)
 
-        diff = ax[3].imshow(depth_diff, cmap='RdBu_r', vmin=heat_min, vmax=heat_max)
+        cbar_0 = fig.colorbar(row_0, ax=ax[0,2], shrink=0.6)
+        cbar_0.set_label('Depth Scale', rotation=90, labelpad=5)
+        cbar_0.ax.set_yticklabels(["{:.2}".format(i) + " m" for i in cbar_0.get_ticks()])  # set ticks of your format
 
-        cbar = fig.colorbar(diff, ax=ax[2], shrink=0.6)
-        cbar.set_label('Ground truth - Predicted', rotation=90, labelpad=5)
-        cbar.ax.set_yticklabels(["{:.2}".format(i) + " m" for i in cbar.get_ticks()])  # set ticks of your format
 
-        ax[0].set_title('Ground Truth', fontsize=16)
-        ax[1].set_title('Estimated Ground Truth', fontsize=16)
-        ax[2].set_title('Generated', fontsize=16)
-        ax[3].set_title('Difference Heat Map', fontsize=16)
+        heat_min = -3
+        heat_max = 3
 
-        for a in ax:
-            a.set_xticks([])
-            a.set_yticks([])
+        ax[1,0].imshow(ground_predict_ground_diff, cmap='RdBu_r', vmin=heat_min, vmax=heat_max)
+        ax[1,1].imshow(predict_ground_gen_diff, cmap='RdBu_r', vmin=heat_min, vmax=heat_max)
+        row_1 = ax[1,2].imshow(ground_gen_diff, cmap='RdBu_r', vmin=heat_min, vmax=heat_max)
+
+        cbar_1 = fig.colorbar(row_1, ax=ax[1,2], shrink=0.6)
+        cbar_1.set_label('Ground truth - Predicted', rotation=90, labelpad=5)
+        cbar_1.ax.set_yticklabels(["{:.2}".format(i) + " m" for i in cbar_1.get_ticks()])  # set ticks of your format
+
+        ax[1,0].set_title('Ground Truth - Predicted Ground Truth', fontsize=16)
+        ax[1,1].set_title('Predicted Ground Truth - Generated', fontsize=16)
+        ax[1,2].set_title('Ground Truth - Generated', fontsize=16)
+
+        for row in ax:
+            for a in row:
+                a.set_xticks([])
+                a.set_yticks([])
 
         if img_id is not None:
-            fig.suptitle(f"Depth Maps for Image - {img_id}", fontsize=18, y=0.95)
+            fig.suptitle(f"Depth Maps for Image - {img_id}", fontsize=18 )#, y=0.95)
         else:
-            fig.suptitle(f"Depth Maps", fontsize=18, y=0.95)
+            fig.suptitle(f"Depth Maps", fontsize=18 )#, y=0.95)
 
         if save_name:
             fig.savefig(save_name)
-
-        plt.show()
+        if display:
+            plt.show()
 
     def get_depth_heat_map_no_ground(predict_ground_depth_map, predict_depth_map, img_id=None, save_name=''):
 
@@ -54,7 +68,7 @@ class Visualiser:
 
         _min, _max = np.amin(predict_ground_depth_map), np.amax(predict_ground_depth_map)
 
-        fig, ax = plt.subplots(1, 3, figsize=(18, 6), layout='constrained')
+        fig, ax = plt.subplots(1, 3, figsize=(15, 6), layout='constrained')
         ax[0].imshow(predict_ground_depth_map, vmin=_min, vmax=_max)
         ax[1].imshow(predict_depth_map, vmin=_min, vmax=_max)
 
@@ -76,9 +90,9 @@ class Visualiser:
             a.set_yticks([])
 
         if img_id is not None:
-            fig.suptitle(f"Depth Maps for Image - {img_id}", fontsize=18, y=0.97)
+            fig.suptitle(f"Depth Maps for Image - {img_id}", fontsize=18, y=1.1)
         else:
-            fig.suptitle(f"Depth Maps", fontsize=18, y=0.97)
+            fig.suptitle(f"Depth Maps", fontsize=18, y=1.1)
 
         if save_name:
             fig.savefig(save_name)

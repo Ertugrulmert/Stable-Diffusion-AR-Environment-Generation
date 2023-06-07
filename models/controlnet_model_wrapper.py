@@ -27,7 +27,7 @@ device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cp
 # device = torch.device("cpu")
 print(f"---- Device found: {device} ----")
 
-BASE_MODEL_ID = "runwayml/stable-diffusion-v1-5"
+BASE_MODEL_ID ="runwayml/stable-diffusion-v1-5" # "SG161222/Realistic_Vision_V2.0"
 
 # Defaults ------------
 image_resolution = 512
@@ -40,13 +40,17 @@ seed = 1825989188
 
 class ControlNetModelWrapper:
 
-    def __init__(self, condition_type="depth", multi_condition=False, only_ground=False, remote_inference=False,
+    def __init__(self, condition_type="depth", multi_condition=False, only_ground=False, #remote_inference=False,
                  depth_model_type="MiDaS",
                  result_root='./results/NYU/',
+                 resolution=256,
+                 num_steps=30,
                  cache_dir=""):
         self.result_root = result_root
         self.multi_condition = multi_condition
-        self.remote_inference = remote_inference
+        self.resolution = resolution
+        self.num_steps = num_steps
+        #self.remote_inference = remote_inference
         self.load_depth_model(model_type=depth_model_type, cache_dir=cache_dir)
         if not only_ground:
             self.load_condition_model(condition_type=condition_type, cache_dir=cache_dir)
@@ -93,37 +97,37 @@ class ControlNetModelWrapper:
 
     def load_controlnet(self, cache_dir=""):
 
-        if not self.remote_inference:
+        #if not self.remote_inference:
 
-            kwargs = {"cache_dir": cache_dir} if cache_dir else {}
+        kwargs = {"cache_dir": cache_dir} if cache_dir else {}
 
-            torch.cuda.empty_cache()
-            if self.multi_condition:
-                self.controlnet_model_id = [ModelData.CONTROLNET_MODEL_IDS[type] for type in self.condition_type]
-                controlnet = [ControlNetModel.from_pretrained(model_id, torch_dtype=torch.float16, **kwargs)
-                              for model_id in self.controlnet_model_id]
-            else:
-                self.controlnet_model_id = ModelData.CONTROLNET_MODEL_IDS[self.condition_type]
-                controlnet = ControlNetModel.from_pretrained(self.controlnet_model_id, torch_dtype=torch.float16,
-                                                             **kwargs)
+        torch.cuda.empty_cache()
+        if self.multi_condition:
+            self.controlnet_model_id = [ModelData.CONTROLNET_MODEL_IDS[type] for type in self.condition_type]
+            controlnet = [ControlNetModel.from_pretrained(model_id, torch_dtype=torch.float16, **kwargs)
+                          for model_id in self.controlnet_model_id]
+        else:
+            self.controlnet_model_id = ModelData.CONTROLNET_MODEL_IDS[self.condition_type]
+            controlnet = ControlNetModel.from_pretrained(self.controlnet_model_id, torch_dtype=torch.float16,
+                                                         **kwargs)
 
-            self.coltrolnet_pipe = StableDiffusionControlNetPipeline.from_pretrained(
-                BASE_MODEL_ID,
-                safety_checker=None,
-                controlnet=controlnet,
-                torch_dtype=torch.float16,
-                **kwargs)
+        self.coltrolnet_pipe = StableDiffusionControlNetPipeline.from_pretrained(
+            BASE_MODEL_ID,
+            safety_checker=None,
+            controlnet=controlnet,
+            torch_dtype=torch.float16,
+            **kwargs)
 
-            self.coltrolnet_pipe.scheduler = UniPCMultistepScheduler.from_config(
-                self.coltrolnet_pipe.scheduler.config)
-            # self.coltrolnet_pipe.enable_xformers_memory_efficient_attention()
-            # self.coltrolnet_pipe.enable_attention_slicing(1)
-            # self.coltrolnet_pipe.enable_vae_tiling()
-            # self.coltrolnet_pipe.enable_sequential_cpu_offload()
-            self.coltrolnet_pipe.to(device)
-            # torch.cuda.empty_cache()
-            torch.cuda.empty_cache()
-            gc.collect()
+        self.coltrolnet_pipe.scheduler = UniPCMultistepScheduler.from_config(
+            self.coltrolnet_pipe.scheduler.config)
+        # self.coltrolnet_pipe.enable_xformers_memory_efficient_attention()
+        # self.coltrolnet_pipe.enable_attention_slicing(1)
+        # self.coltrolnet_pipe.enable_vae_tiling()
+        # self.coltrolnet_pipe.enable_sequential_cpu_offload()
+        self.coltrolnet_pipe.to(device)
+        # torch.cuda.empty_cache()
+        torch.cuda.empty_cache()
+        gc.collect()
         """
         else:
             if self.multi_condition:
@@ -136,7 +140,7 @@ class ControlNetModelWrapper:
             else:
                 raise RuntimeError("Invalid condition type!")"""
 
-    def infer_depth_map(self, image, save_name='', display=True, image_resolution=512):
+    def infer_depth_map(self, image, save_name='', display=True):
 
         input_batch = self.depth_transform(image)  # .to(device)
 
@@ -151,7 +155,7 @@ class ControlNetModelWrapper:
 
             output = prediction.cpu().numpy()
 
-            output_resized = resize_image(output, image_resolution)
+            output_resized = resize_image(output, self.resolution, is_depth=True)
 
             if display:
                 plt.imshow(output_resized)
@@ -165,7 +169,7 @@ class ControlNetModelWrapper:
 
             return output_resized
 
-    def infer_seg_ade20k(self, image, i, save_name='', display=False, image_resolution=512):
+    def infer_seg_ade20k(self, image, i, save_name='', display=False):
 
         # pixel_values = image_processor(image, return_tensors="pt").pixel_values
         inputs = self.image_processor(image, return_tensors="pt")
@@ -173,7 +177,7 @@ class ControlNetModelWrapper:
         with torch.no_grad():
             outputs = self.segmentation_model(**inputs)
 
-        temp_img = resize_image(image, image_resolution)
+        temp_img = resize_image(image, self.resolution)
         H, W = temp_img.shape[:2]
 
         seg = self.image_processor.post_process_semantic_segmentation(outputs, target_sizes=[(H, W)])[0]
@@ -215,24 +219,16 @@ class ControlNetModelWrapper:
 
         prompt = f'{prompt}, {ModelData.additional_prompt}'
 
-        if not self.remote_inference:
-            with torch.inference_mode():
-                results = self.coltrolnet_pipe(prompt=prompt, negative_prompt=ModelData.negative_prompt,
-                                               image=condition_image,
-                                               # image=source_image,
-                                               height=H,
-                                               width=W,
-                                               guidance_scale=guidance_scale,
-                                               controlnet_conditioning_scale=conditioning_scale,
-                                               num_inference_steps=num_inference_steps,
-                                               generator=generator)
-
-        else:
-            self.coltrolnet_pipe.image_to_image("cat.jpg", prompt=prompt, negative_prompt=ModelData.negative_prompt,
-                                                height=H,
-                                                width=W,
-                                                guidance_scale=guidance_scale,
-                                                )
+        with torch.inference_mode():
+            results = self.coltrolnet_pipe(prompt=prompt, negative_prompt=ModelData.negative_prompt,
+                                           image=condition_image,
+                                           # image=source_image,
+                                           height=H,
+                                           width=W,
+                                           guidance_scale=guidance_scale,
+                                           controlnet_conditioning_scale=conditioning_scale,
+                                           num_inference_steps=num_inference_steps,
+                                           generator=generator)
 
         title = break_up_string(prompt)
 
@@ -243,7 +239,7 @@ class ControlNetModelWrapper:
         fig, ax = plt.subplots(1, 2)
         ax[0].imshow(source_image)
         ax[1].imshow(results.images[0])
-        fig.suptitle(title, fontsize=fontsize, y=0.9)
+        fig.suptitle(title, fontsize=fontsize, y=1)
         for a in ax:
             a.set_xticks([])
             a.set_yticks([])
@@ -261,11 +257,13 @@ class ControlNetModelWrapper:
         return results.images[0]
 
     def run_ARCore_pipeline(self, rgb_filepath, depth_filepath, i=0, prompt="",
-                            resolution=512, only_ground=False, display=False, save_eval=True):
+                            guidance_scale = default_guidance_scale,
+                            only_ground=False, display=False, save_eval=True):
 
         # ---------------- Setting paths and other variables
         if not prompt:
-            prompt = ModelData.interior_design_prompt_1
+            prompt_id = randrange(len(ModelData.PROMPT_LIST))
+            prompt = ModelData.PROMPT_LIST[prompt_id]
 
         self.evaluator.set_prompt(prompt)
 
@@ -274,38 +272,41 @@ class ControlNetModelWrapper:
         if self.multi_condition or not self.condition_type == "depth":
             condition_img_path = os.path.join(self.result_root, f"ControlNet/gen_depth_maps/{i}_gen_{condition_id}")
 
+        identifier = f"{condition_id}_prompt_{prompt[0:min(5, len(prompt))]}_iter_{self.num_steps}_guide_{guidance_scale}_res_{self.resolution}"
+
         predict_depth_path = os.path.join(self.result_root, "ControlNet/gen_depth_maps",
-                                          f"{i}_gen_depth_from_{condition_id}")
+                                          f"{i}_gen_depth_{identifier}")
         heatmap_path = os.path.join(self.result_root, f"ControlNet/depth_map_heatmaps",
-                                    f"{i}_depth_heatmap_from_{condition_id}.png")
+                                    f"{i}_depth_heatmap_{identifier}.png")
         gen_pcd_path = os.path.join(self.result_root, f"ControlNet/gen_point_clouds",
-                                    f"{i}_gen_pcd_from_{condition_id}.ply")
+                                    f"{i}_gen_pcd_{identifier}.ply")
 
         predict_ground_depth_path = os.path.join(self.result_root, "ControlNet", "predicted_ground_truth_depth_maps",
-                                                 f"{i}_predict_ground_depth")
+                                                 f"{i}_predict_ground_depth_res_{self.resolution}")
 
-        ground_pcd_path = os.path.join(self.result_root, f"ground_point_clouds", f"{i}_ground_pcd.ply")
+        ground_pcd_path = os.path.join(self.result_root, f"ground_point_clouds", f"{i}_ground_pcd_res_{self.resolution}.ply")
 
         gen_img_save_name = os.path.join(self.result_root, f"ControlNet", "2d_images",
-                                         f"{i}_generated_from_{condition_id}.png")
+                                         f"{i}_{identifier}.png")
         comparison_save_name = os.path.join(self.result_root, f"ControlNet", "2d_images",
-                                            f"{i}_comparison_from_{condition_id}.png")
+                                            f"{i}_comparison_{identifier}.png")
 
-        identifier = f"{condition_id}_prompt_{prompt[0:min(5, len(prompt))]}_iter_{default_num_steps}_guide_{default_guidance_scale}"
         eval_table_path = os.path.join(self.result_root, f"ControlNet/eval_logs/{identifier}.csv")
 
         # ------------- Begin Processing
         start = time.time()
 
         rgb_image, arcore_depth_map, original_image_W = prepare_arcore_data(rgb_filepath, depth_filepath,
-                                                                            image_resolution=resolution, crop_rate=0.1)
+                                                                            image_resolution=self.resolution, crop_rate=0)
+
+        print(f"original_image_W: {original_image_W}")
+
 
         end = time.time()
         print(f"prepare_arcore_data | time: {end - start}")
 
         start = time.time()
-        predict_ground_depth_map = self.infer_depth_map(rgb_image, save_name=predict_ground_depth_path,
-                                                        display=False, image_resolution=resolution)
+        predict_ground_depth_map = self.infer_depth_map(rgb_image, save_name=predict_ground_depth_path, display=False)
         end = time.time()
         print(f"infer_depth_map | time: {end - start}")
 
@@ -313,11 +314,18 @@ class ControlNetModelWrapper:
         predict_ground_depth_map_aligned = align_midas_withzeros(predict_ground_depth_map, arcore_depth_map)
 
         c1, c2 = predict_ground_depth_map_aligned.shape
-        center_depth = predict_ground_depth_map_aligned[c1 // 2, c2 // 2]
+        center_depth = arcore_depth_map[c1 // 2, c2 // 2]
+
+        print(f"Original center depth: {center_depth}")
+
+        #center_depth = (predict_ground_depth_map_aligned.max() - predict_ground_depth_map_aligned.min())/2 -center_depth
+
+        print(f"arcore_depth_map max: {arcore_depth_map.max()} | min: {arcore_depth_map.min()}")
+        print(f"predict_ground_depth_map_aligned max: {predict_ground_depth_map_aligned.max()} | min: {predict_ground_depth_map_aligned.min()}")
 
         start = time.time()
-        point_clouds.get_point_cloud(resize_image(rgb_image, resolution=original_image_W),
-                                     resize_image(predict_ground_depth_map_aligned, resolution=original_image_W),
+        point_clouds.get_point_cloud(resize_image(rgb_image, original_image_W, round =False), #rgb_image,
+                                     resize_image(predict_ground_depth_map_aligned, original_image_W, is_depth=True, round =False), #predict_ground_depth_map_aligned,
                                      pcd_path=ground_pcd_path,
                                      display=False)
         end = time.time()
@@ -326,25 +334,28 @@ class ControlNetModelWrapper:
         print(f"in arcore, only_ground {only_ground}")
 
         if only_ground:
+            center_depth = (predict_ground_depth_map_aligned.max() - predict_ground_depth_map_aligned.min()) / 2 - center_depth
+            print(f"mean depth: {(predict_ground_depth_map_aligned.max() - predict_ground_depth_map_aligned.min()) / 2}")
+            print(
+                f"mean depth - center_depth: {center_depth}")
             return ground_pcd_path, center_depth
 
         # ---- IF GENERATIVE MODE IS ON ----
+
 
         start = time.time()
 
         if self.multi_condition:
             depth_condition, H, W = prepare_nyu_controlnet_depth(predict_ground_depth_map,
-                                                                 image_resolution=resolution)
-            seg_condition, _, _ = self.infer_seg_ade20k(rgb_image, i, save_name=condition_img_path,
-                                                        image_resolution=resolution)
+                                                                 image_resolution=self.resolution)
+            seg_condition, _, _ = self.infer_seg_ade20k(rgb_image, i, save_name=condition_img_path)
             ground_condition = [depth_condition, seg_condition]
         elif self.condition_type == "depth":
-            ground_condition, H, W = prepare_nyu_controlnet_depth(predict_ground_depth_map,
-                                                                  image_resolution=resolution)
+            ground_condition, H, W = prepare_nyu_controlnet_depth(predict_ground_depth_map, image_resolution=0)
+                                                                  #image_resolution=self.resolution)
         else:  # seg
             # ground_condition, H, W = prepare_nyu_controlnet_seg(ground_condition_np, num_classes=num_classes)
-            ground_condition, H, W = self.infer_seg_ade20k(rgb_image, i, save_name=condition_img_path,
-                                                           image_resolution=resolution)
+            ground_condition, H, W = self.infer_seg_ade20k(rgb_image, i, save_name=condition_img_path)
 
         end = time.time()
         print(f"prepare depth | time: {end - start}")
@@ -358,7 +369,7 @@ class ControlNetModelWrapper:
                                         H=H, W=W,
                                         guidance_scale=default_guidance_scale,
                                         conditioning_scale=conditioning_scale,
-                                        num_inference_steps=default_num_steps,
+                                        num_inference_steps=self.num_steps,
                                         save_name=gen_img_save_name,
                                         comparison_save_name=comparison_save_name)
 
@@ -369,20 +380,20 @@ class ControlNetModelWrapper:
 
         start = time.time()
 
-        gen_depth_map = self.infer_depth_map(gen_img_np, save_name=predict_depth_path, image_resolution=resolution)
+        gen_depth_map = self.infer_depth_map(gen_img_np, save_name=predict_depth_path)
         gen_depth_map_aligned = align_midas_withzeros(gen_depth_map, arcore_depth_map)
 
         end = time.time()
         print(f"infer_depth_map gen | time: {end - start}")
 
         start = time.time()
-        vis.get_depth_heat_map_no_ground(predict_ground_depth_map_aligned, gen_depth_map_aligned, img_id=i,
+        vis.get_depth_heat_map(arcore_depth_map, predict_ground_depth_map_aligned, gen_depth_map_aligned, img_id=i,
                                          save_name=heatmap_path)
 
         end = time.time()
         print(f"get_point_cloud gen | time: {end - start}")
-        point_clouds.get_point_cloud(resize_image(gen_img_np, original_image_W),
-                                     resize_image(gen_depth_map_aligned, original_image_W),
+        point_clouds.get_point_cloud(resize_image(gen_img_np, original_image_W, round =False),
+                                     resize_image(gen_depth_map_aligned, original_image_W, is_depth=True, round =False),
                                      pcd_path=gen_pcd_path, display=display)
 
         start = time.time()
@@ -397,34 +408,32 @@ class ControlNetModelWrapper:
         # if save_eval:
         #    eval_results.to_csv(eval_table_path, mode='a', index=False, header=False)
 
+        center_depth = (gen_depth_map_aligned.max() - gen_depth_map_aligned.min()) / 2 - center_depth
+
         return gen_pcd_path, center_depth
 
     def run_NYU_pipeline(self, image, depth_map, i, prompt="",
                          guidance_scale=7.5, strength=0.5,
                          conditioning_scale=[1, 0.7],
-                         num_inference_steps=default_num_steps,
-                         resolution=512,
                          display=False,
                          save_eval=True):
-        src_img_np, ground_depth_map = prepare_nyu_data(image, depth_map, image_resolution=resolution)
+        src_img_np, ground_depth_map, original_image_W = prepare_nyu_data(image, depth_map, image_resolution=self.resolution)
 
         prompt_id = randrange(len(ModelData.PROMPT_LIST))
 
         return self.run_pipeline(src_img_np, ground_depth_map, i, prompt=ModelData.PROMPT_LIST[prompt_id],
                                  guidance_scale=guidance_scale, strength=strength,
-                                 conditioning_scale=conditioning_scale, num_inference_steps=num_inference_steps,
-                                 dataset="NYU", display=display, save_eval=save_eval, prompt_id=prompt_id,
-                                 resolution=resolution)
+                                 conditioning_scale=conditioning_scale,
+                                 dataset="NYU", display=display, save_eval=save_eval, prompt_id=prompt_id, original_image_W=original_image_W)
 
     def run_pipeline(self, src_image, ground_depth_map, i, prompt="",
                      guidance_scale=7.5, strength=0.5,
                      conditioning_scale=[1.0, 0.7],
-                     num_inference_steps=default_num_steps,
-                     dataset="NYU",
+                     dataset="NYU", # in case new datasets are added
                      display=False,
                      save_eval=True,
                      prompt_id=None,
-                     resolution=512):
+                     original_image_W=None):
 
         # if not prompt is given, randomly assign a prompt
         if not prompt:
@@ -436,44 +445,53 @@ class ControlNetModelWrapper:
         condition_id = self.condition_type if not self.multi_condition else f"_{'_'.join(self.condition_type)}_"
 
         if self.multi_condition or not self.condition_type == "depth":
-            condition_img_path = self.result_root + f"ControlNet/gen_depth_maps/{i}_gen_{condition_id}"
+            condition_img_path = self.result_root + f"ControlNet/ground_conditions/{i}_condition_{condition_id}_res_{self.resolution}"
 
-        predict_depth_path = self.result_root + f"ControlNet/gen_depth_maps/{i}_gen_depth_from_{condition_id}"
-        heatmap_path = self.result_root + f"ControlNet/depth_map_heatmaps/{i}_depth_heatmap_from_{condition_id}.png"
-        gen_pcd_path = self.result_root + f"ControlNet/gen_point_clouds/{i}_gen_pcd_from_{condition_id}"
+        predict_ground_depth_path = self.result_root + f"ControlNet/predicted_ground_truth_depth_maps/{i}_predict_ground_depth_res_{self.resolution}"
 
-        predict_ground_depth_path = self.result_root + f"ControlNet/predicted_ground_truth_depth_maps/{i}_predict_ground_depth"
-
-        ground_pcd_path = self.result_root + f"ground_point_clouds/{i}_ground_pcd"
-
-        gen_img_save_name = self.result_root + f"ControlNet/2d_images/{i}_generated_from_{condition_id}.png"
-        comparison_save_name = self.result_root + f"ControlNet/2d_images/{i}_comparison_from_{condition_id}.png"
+        ground_pcd_path = self.result_root + f"ground_point_clouds/{i}_ground_pcd_res_{self.resolution}"
 
         if prompt_id == None:
             prompt_id = prompt[0:min(5, len(prompt))]
 
-        identifier = f"{condition_id}_prompt_{prompt_id}_iter_{num_inference_steps}_guide_{guidance_scale}"
+        identifier = f"{condition_id}_prompt_{prompt_id}_iter_{self.num_steps}_guide_{guidance_scale}_res_{self.resolution}"
+
+        gen_img_save_name = self.result_root + f"ControlNet/2d_images/{i}_{identifier}.png"
+        comparison_save_name = self.result_root + f"ControlNet/2d_images/{i}_comparison_{identifier}.png"
+
+        predict_depth_path = self.result_root + f"ControlNet/gen_depth_maps/{i}_gen_depth_{identifier}"
+        heatmap_path = self.result_root + f"ControlNet/depth_map_heatmaps/{i}_depth_heatmap_{identifier}.png"
+        gen_pcd_path = self.result_root + f"ControlNet/gen_point_clouds/{i}_gen_pcd_{identifier}"
 
         eval_table_path = self.result_root + f"ControlNet/eval_logs/{identifier}.csv"
 
         predict_ground_depth_map = self.infer_depth_map(src_image, save_name=predict_ground_depth_path,
-                                                        display=display, image_resolution=resolution)
+                                                        display=display)
         #predict_ground_depth_map = resize_image(predict_ground_depth_map, image_resolution)
         predict_ground_depth_map_aligned = align_midas_withzeros(predict_ground_depth_map, ground_depth_map)
 
+        original_pcd = point_clouds.get_point_cloud(resize_image(src_image,
+                                                                 original_image_W if original_image_W is not None
+                                                                 else self.resolution,
+                                                                 round =False),
+                                                    resize_image(predict_ground_depth_map_aligned,
+                                                                 original_image_W if original_image_W is not None
+                                                                 else self.resolution,
+                                                                 is_depth=True, round =False),
+                                                    pcd_path=ground_pcd_path + ".ply",
+                                                    display=display)
+
         if self.multi_condition:
             depth_condition, H, W = prepare_nyu_controlnet_depth(predict_ground_depth_map, is_nyu=True,
-                                                                 image_resolution=resolution)
-            seg_condition, _, _ = self.infer_seg_ade20k(src_image, i, save_name=condition_img_path,
-                                                        image_resolution=resolution)
+                                                                 image_resolution=self.resolution)
+            seg_condition, _, _ = self.infer_seg_ade20k(src_image, i, save_name=condition_img_path)
             ground_condition = [depth_condition, seg_condition]
         elif self.condition_type == "depth":
             ground_condition, H, W = prepare_nyu_controlnet_depth(predict_ground_depth_map, is_nyu=True,
-                                                                  image_resolution=resolution)
+                                                                  image_resolution=self.resolution)
         else:  # seg
             # ground_condition, H, W = prepare_nyu_controlnet_seg(ground_condition_np, num_classes=num_classes)
-            ground_condition, H, W = self.infer_seg_ade20k(src_image, i, save_name=condition_img_path,
-                                                           image_resolution=resolution)
+            ground_condition, H, W = self.infer_seg_ade20k(src_image, i, save_name=condition_img_path)
 
         print(f"ground_depth_map max: {ground_depth_map.max()} | min: {ground_depth_map.min()}")
         print(
@@ -483,7 +501,7 @@ class ControlNetModelWrapper:
                                         H=H, W=W,
                                         guidance_scale=guidance_scale,
                                         conditioning_scale=conditioning_scale if self.multi_condition else 1.0,
-                                        num_inference_steps=num_inference_steps,
+                                        num_inference_steps=self.num_steps,
                                         save_name=gen_img_save_name,
                                         comparison_save_name=comparison_save_name)
 
@@ -491,7 +509,7 @@ class ControlNetModelWrapper:
 
         # ground_depth_map = infer_depth_map(source_img_np)
 
-        predict_depth_map = self.infer_depth_map(gen_img_np, save_name=predict_depth_path, image_resolution=resolution)
+        predict_depth_map = self.infer_depth_map(gen_img_np, save_name=predict_depth_path)
         predict_depth_map_aligned = align_midas(predict_depth_map, ground_depth_map)
 
         print(
@@ -501,8 +519,6 @@ class ControlNetModelWrapper:
                                          predict_depth_map_aligned,
                                          img_id=i, save_name=heatmap_path)
 
-        original_pcd = point_clouds.get_point_cloud(src_image, ground_depth_map, pcd_path=ground_pcd_path + ".ply",
-                                                    display=display)
         # original_pcd = get_point_cloud(src_img_np, ground_depth_map,  pcd_path=ground_pcd_path+".pcd")
         generated_pcd = point_clouds.get_point_cloud(gen_img_np, predict_depth_map_aligned,
                                                      pcd_path=gen_pcd_path + ".ply", display=display)
@@ -525,7 +541,6 @@ class ControlNetModelWrapper:
     def run_noground_pipeline(self, image, i, prompt="",
                               guidance_scale=7.5, strength=0.5,
                               conditioning_scale=[1, 0.7],
-                              num_inference_steps=20,
                               save_eval=True):
 
         if not prompt:
@@ -555,11 +570,11 @@ class ControlNetModelWrapper:
         gen_img_save_name = self.result_root + f"2d_images/{i}_generated_from_{condition_id}.png"
         comparison_save_name = self.result_root + f"2d_images/{i}_comparison_from_{condition_id}.png"
 
-        identifier = f"{condition_id}_prompt_{prompt[0:min(5, len(prompt))]}_iter_{num_inference_steps}_guide_{guidance_scale}"
+        identifier = f"{condition_id}_prompt_{prompt[0:min(5, len(prompt))]}_iter_{self.num_steps}_guide_{guidance_scale}"
         eval_table_path = self.result_root + f"eval_logs/{identifier}.csv"
 
         # src_img_np, ground_condition_np = prepare_nyu_data(image, condition_data[i])
-        src_img_np, _ = prepare_nyu_data(rgb_img=image, image_resolution=image_resolution)
+        src_img_np, _, original_image_W = prepare_nyu_data(rgb_img=image, image_resolution=image_resolution)
 
         predict_ground_depth_map = self.infer_depth_map(src_img_np, save_name=predict_ground_depth_path)
         predict_ground_depth_map = resize_image(predict_ground_depth_map, image_resolution)
@@ -617,11 +632,11 @@ class ControlNetModelWrapper:
 
         return eval_results
 
-    def compute_macro_eval(self, prompt, num_inference_steps, guidance_scale, index_range=[0, 0]):
+    def compute_macro_eval(self, prompt, guidance_scale, index_range=[0, 0]):
 
         condition_id = self.condition_type if not self.multi_condition else f"_{'_'.join(self.condition_type)}_"
 
-        identifier = f"{condition_id}_prompt_{prompt[0:min(5, len(prompt))]}_iter_{num_inference_steps}_guide_{guidance_scale}"
+        identifier = f"{condition_id}_prompt_{prompt[0:min(5, len(prompt))]}_iter_{self.num_steps}_guide_{guidance_scale}"
 
         if index_range[1]:
             identifier = identifier + f"_range_{index_range[0]}-{index_range[1]}"
@@ -646,17 +661,17 @@ def main(args):
     pipeline = ControlNetModelWrapper(condition_type=args.condition_type,
                                       multi_condition=args.multi_condition,
                                       result_root=args.result_root,
+                                      resolution=args.resolution,
+                                      num_steps=args.num_steps,
                                       cache_dir=cache_dir)
 
     for i in range(0, rgb_images.shape[0]):
         pipeline.run_NYU_pipeline(rgb_images[i], depth_maps[i], i, prompt=args.prompt,
                                   guidance_scale=args.guidance_scale, strength=args.strength,
-                                  num_inference_steps=args.num_inference_steps, display=args.display,
-                                  resolution=args.resolution)
+                                  display=args.display)
 
         if i > 0 and i % 5 == 0:
-            pipeline.compute_macro_eval(prompt=args.prompt, num_inference_steps=args.num_inference_steps,
-                                        guidance_scale=args.guidance_scale, index_range=[0, i])
+            pipeline.compute_macro_eval(prompt=args.prompt, guidance_scale=args.guidance_scale, index_range=[0, i])
 
 
 if __name__ == "__main__":
@@ -667,12 +682,12 @@ if __name__ == "__main__":
     parser.add_argument('--prompt', default='')
     parser.add_argument('--guidance_scale', default=default_guidance_scale, type=int)
     parser.add_argument('--strength', default=0.75, type=float)
-    parser.add_argument('--num_inference_steps', type=int, default=default_num_steps)
+    parser.add_argument('--num_steps', type=int, default=default_num_steps)
     parser.add_argument('--condition_type', type=str, default="depth")
     parser.add_argument('--multi_condition', type=bool, default=False)
     parser.add_argument('--cache_dir', type=str, default="")
     parser.add_argument('--display', type=bool, default=False)
-    parser.add_argument('--resolution', type=int, default=512)
+    parser.add_argument('--resolution', type=int, default=256)
 
     args = parser.parse_args()
     main(args)

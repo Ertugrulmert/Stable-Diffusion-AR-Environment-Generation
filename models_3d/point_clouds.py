@@ -18,11 +18,15 @@ from utils.preprocessing import *
 
 def get_point_cloud(rgb_image, depth_image, pcd_path="", display=False):
 
+    print("get point cloud")
+    print(f"rgb shape {rgb_image.shape}")
+    print(f"depth shape {depth_image.shape}")
+
     new_depth_image = o3d.geometry.Image(depth_image)
 
     rgbd_image = o3d.geometry.RGBDImage.create_from_color_and_depth(
         o3d.geometry.Image(rgb_image), o3d.geometry.Image(new_depth_image),
-        depth_scale=10, convert_rgb_to_intensity=False)
+        depth_scale=1, convert_rgb_to_intensity=False)
 
     pcd = o3d.geometry.PointCloud.create_from_rgbd_image(
         rgbd_image,
@@ -60,7 +64,7 @@ def rebuild_point_clouds(rgb_image, depth_map, i, result_root='./results/NYU/', 
     predict_depth_map = np.load(predict_depth_path)
     image_resolution = predict_depth_map.shape[0]
 
-    src_img_np, ground_depth_map = prepare_nyu_data(rgb_image, depth_map, image_resolution=image_resolution)
+    src_img_np, ground_depth_map, original_image_W = prepare_nyu_data(rgb_image, depth_map, image_resolution=image_resolution)
     gen_img = Image.open(gen_img_path)
     gen_img.show()
     gen_img_np = np.array(gen_img)
@@ -97,7 +101,7 @@ def rebuild_point_clouds_ground_depth(rgb_image, depth_map, i, result_root='./re
     predict_depth_map = np.load(predict_depth_path)
     image_resolution = predict_depth_map.shape[0]
 
-    src_img_np, ground_depth_map = prepare_nyu_data(rgb_image, depth_map, image_resolution=image_resolution)
+    src_img_np, ground_depth_map, original_image_W = prepare_nyu_data(rgb_image, depth_map, image_resolution=image_resolution)
     #resized_src_img = resize_image(src_img_np, image_resolution)
     gen_img = Image.open(gen_img_path)
     gen_img.show()
@@ -133,7 +137,7 @@ def rebuild_point_clouds_heatmap(rgb_image, depth_map, i, result_root='./results
     predict_depth_map = np.load(predict_depth_path)
     image_resolution = predict_depth_map.shape[0]
 
-    src_img_np, ground_depth_map = prepare_nyu_data(rgb_image, depth_map, image_resolution=image_resolution)
+    src_img_np, ground_depth_map, original_image_W = prepare_nyu_data(rgb_image, depth_map, image_resolution=image_resolution)
 
     gen_img = Image.open(gen_img_path)
     gen_img.show()
