@@ -86,7 +86,7 @@ def prepare_arcore_data(rgb_filepath, depth_filepath, confidence_filepath=None, 
     print(f"before initial crop rgb: {rgb_image.shape}")
 
     rgb_crop_val = int((rgb_w - d_w) / 2)
-    rgb_image = rgb_image[:,rgb_crop_val:rgb_w-rgb_crop_val,:]
+    rgb_image = rgb_image[:, rgb_crop_val:rgb_w - rgb_crop_val, :]
     print(f"initial cropped rgb: {rgb_image.shape}")
 
     # adjust according to crop for 64
@@ -94,11 +94,10 @@ def prepare_arcore_data(rgb_filepath, depth_filepath, confidence_filepath=None, 
 
     # resize to desired resolution
     rgb_image_resized = resize_image(rgb_image, image_resolution, crop=True)
-    depth_resized = resize_image(depth_resized, image_resolution, is_depth=True, crop=True) #ref_min=False,
+    depth_resized = resize_image(depth_resized, image_resolution, is_depth=True, crop=True)  # ref_min=False,
 
     print(f"after res resize rgb: {rgb_image_resized.shape}")
     print(f"after res resize depth: {depth_resized.shape}")
-
 
     if crop_rate:
         rgb_image_resized = crop_image(rgb_image_resized, crop_rate)
@@ -200,7 +199,29 @@ def HWC3(x):
         return y
 
 
-def resize_image(input_image, resolution, is_depth=False, ref_width=True, round =True, crop=False, scale_factor=None):
+def reshape_to_shape(image, H, W, is_depth=False):
+    if is_depth:
+        return cv2.resize(image, (W, H), interpolation=cv2.INTER_LINEAR)
+    else:
+        return cv2.resize(image, (W, H), interpolation=cv2.INTER_LANCZOS4 if W > image.shape[1] > 1 else cv2.INTER_AREA)
+
+
+def crop_to_shape(image, H, W):
+    H_original, W_original = image.shape[:2]
+    H_crop = H_original - H
+    W_crop = W_original - W
+
+    assert (H_crop >= 0)
+    assert (W_crop >= 0)
+    H_crop_half = int(H_crop // 2)
+    W_crop_half = int(W_crop // 2)
+
+    return image[H_crop_half : int(H_original - H_crop + H_crop_half),
+                 W_crop_half : int(W_original - W_crop + W_crop_half)]
+
+
+def resize_image(input_image, resolution=None, is_depth=False, ref_width=True, round=True, crop=False,
+                 scaling_factor=None):
     if len(input_image.shape) == 3:
         H, W, C = input_image.shape
     else:
@@ -221,7 +242,7 @@ def resize_image(input_image, resolution, is_depth=False, ref_width=True, round 
 
         print(f"after 64 crop: {input_image.shape}")
 
-    if scale_factor == None:
+    if scaling_factor == None:
         if ref_width:
             print(f"ref width")
             k = float(resolution) / W
@@ -229,7 +250,7 @@ def resize_image(input_image, resolution, is_depth=False, ref_width=True, round 
             print(f"ref hight")
             k = float(resolution) / H
     else:
-        k = scale_factor
+        k = scaling_factor
 
     print(f"k for resize: {k}")
     H *= k
@@ -270,7 +291,36 @@ def break_up_string(text, line_limit=50):
     return new_text
 
 
-def prepare_nyu_controlnet_depth(x, is_nyu=False, image_resolution=512):
+def get_sizing_params(resolution, original_shape, round_down=False):
+    H_original = original_shape[0]
+    W_original = original_shape[1]
+
+    scaling_factor = float(resolution) / W_original
+
+    H_resize = H_original * scaling_factor
+    W_resize = W_original * scaling_factor
+    if round_down:
+        H_resize = int(H_resize // 64.0) * 64
+        W_resize = int(W_resize // 64.0) * 64
+    else:
+        H_resize = int(np.round(H_resize / 64.0)) * 64
+        W_resize = int(np.round(W_resize / 64.0)) * 64
+
+    H_upsample = int(H_resize / scaling_factor)
+    W_upsample = int(W_resize / scaling_factor)
+
+    print(f"H_original: {H_original}")
+    print(f"W_original: {W_original}")
+    print(f"scaling_factor: {scaling_factor}")
+    print(f"H_resize: {H_resize}")
+    print(f"W_resize: {W_resize}")
+    print(f"H_upsample: {H_upsample}")
+    print(f"W_upsample: {W_upsample}")
+
+    return H_original, W_original, H_resize, W_resize, scaling_factor, H_upsample, W_upsample
+
+
+def prepare_nyu_controlnet_depth(x, scaling_factor=None):
     new_img = x.astype(np.float32)
 
     # if is_nyu:
@@ -279,16 +329,15 @@ def prepare_nyu_controlnet_depth(x, is_nyu=False, image_resolution=512):
     # new_img = 1 / (new_img.astype(np.float32) + 10e-6)
 
     nonzero = np.nonzero(new_img)
-    #new_img -= np.min(new_img)
+    # new_img -= np.min(new_img)
     new_img[nonzero] -= np.min(new_img[nonzero])
     new_img /= np.max(new_img)
     new_img = (new_img * 255.0).clip(0, 255).astype(np.uint8)
     new_img = HWC3(new_img)
-    if image_resolution:
-        temp_img = resize_image(new_img, image_resolution)
-        H, W = temp_img.shape[:2]
-        new_img = cv2.resize(new_img, (W, H), interpolation=cv2.INTER_LINEAR)
 
+    if scaling_factor is not None:
+        new_img = resize_image(new_img, is_depth=True, round=True, crop=False, scaling_factor=scaling_factor)
+        H, W = new_img.shape[:2]
     else:
         H, W = new_img.shape[:2]
 
