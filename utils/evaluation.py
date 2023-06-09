@@ -39,14 +39,14 @@ def compute_errors(gt, pred):
     # measuring how much of the prediction is "behind" or further than the ground truth
     behind_avg = np.sum((pred - gt).clip(0)) / num_valid_pixels
     behind_rel = np.sum((pred - gt).clip(0) /gt ) / num_valid_pixels
-    behind_rate = np.count_nonzero((pred - gt) > 4) / num_valid_pixels
+    behind_rate = np.count_nonzero((pred - gt) > 0) / num_valid_pixels
 
 
     return abs_rel, sq_rel, rmse, rmse_log, a1, a2, a3, behind_avg, behind_rel, behind_rate
 
 
 class Evaluator:
-    columns = ['id', 'LPIPS', 'CLIPScore',
+    columns = ['id', 'propmt_id', 'LPIPS', 'CLIPScore',
                "GR-Abs-Rel", "GR-Sqr-Rel", "GR-RMSE", "GR-RMSE-log", "GR-thresh-1", "GR-thresh-2", "GR-thresh-3", \
                "GR-behind-Avg", "GR-behind-Rel", "GR-behind-Rate",  \
                "Pred-GR-Abs-Rel", "Pred-GR-Sqr-Rel", "Pred-GR-RMSE", "Pred-GR-RMSE-log", \
@@ -56,7 +56,7 @@ class Evaluator:
                "Pred-Gen-thresh-1", "Pred-Gen-thresh-2", "Pred-Gen-thresh-3",
                "Pred-Gen-behind-Avg", "Pred-Gen-behind-Rel", "Pred-Gen-behind-Rate"]
 
-    noground_columns = ['id', 'LPIPS', 'CLIPScore',
+    noground_columns = ['id', 'propmt_id', 'LPIPS', 'CLIPScore',
                "Pred-GR-Abs-Rel", "Pred-GR-Sqr-Rel", "Pred-GR-RMSE", "Pred-GR-RMSE-log", \
                "Pred-GR-thresh-1", "Pred-GR-thresh-2", "Pred-GR-thresh-3", \
                "Pred-GR-behind-Avg", "Pred-GR-behind-Rel", "Pred-GR-behind-Rate"]
@@ -81,7 +81,7 @@ class Evaluator:
         self.prompt = ' '.join(tokens)
 
     def evaluate_set(self, dataset_path, result_root, condition_type="seg", prompt=ModelData.interior_design_prompt_1,
-                     index_range=(0, 0)):
+                     index_range=(0, 0), prompt_id = ""):
 
         self.set_prompt(prompt)
         df = pd.DataFrame(columns=self.columns)
@@ -174,6 +174,7 @@ class Evaluator:
                 ground_depth_map, predict_depth_map_aligned)
 
             df.loc[i] = [i,  # fid_score,
+                         prompt_id,
                          lpips_score.item(),
                          # inception_score,
                          clip_score,
@@ -218,7 +219,7 @@ class Evaluator:
         return df, fid_score, inception_score
 
     def evaluate_sample(self, src_img_np, gen_img_np, ground_depth_map, predict_ground_depth_map, predict_depth_map,
-                        prompt="", id=0, save_path=""):
+                        prompt="", id=0, save_path="", prompt_id = ""):
         if prompt:
             self.set_prompt(prompt)
         df = pd.DataFrame(columns=self.columns)
@@ -257,7 +258,7 @@ class Evaluator:
         g_pgen_abs_rel, g_pgen_sq_rel, g_pgen_rmse, g_pgen_rmse_log, g_pgen_a1, g_pgen_a2, g_pgen_a3, g_pgen_b_avg, g_pgen_b_rel, g_pgen_b_rate = compute_errors(
             ground_depth_map, predict_depth_map)
 
-        df.loc[0] = [id,
+        df.loc[0] = [id, prompt_id,
                      lpips_score.item(),
                      clip_score,
                      g_pg_abs_rel, g_pg_sq_rel, g_pg_rmse, g_pg_rmse_log,
@@ -276,7 +277,7 @@ class Evaluator:
         return df
 
     def evaluate_sample_aligned_noground(self, src_img_np, gen_img_np, predict_ground_depth_map_aligned,
-                                         predict_depth_map_aligned, prompt="", id=0, save_path=""):
+                                         predict_depth_map_aligned, prompt="", id=0, save_path="", prompt_id=""):
         if prompt:
             self.set_prompt(prompt)
         df = pd.DataFrame(columns=self.noground_columns)
@@ -303,6 +304,7 @@ class Evaluator:
             predict_ground_depth_map_aligned, predict_depth_map_aligned)
 
         df.loc[0] = [id,
+                     prompt_id,
                      lpips_score.item(),
                      clip_score,
                      pg_pgen_abs_rel, pg_pgen_sq_rel, pg_pgen_rmse, pg_pgen_rmse_log,

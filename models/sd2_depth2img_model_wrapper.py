@@ -152,7 +152,7 @@ class Depth2ImgWrapper:
         identifier = f"{condition_id}_prompt_{prompt[0:min(5,len(prompt))]}_iter_{num_inference_steps}_guide_{guidance_scale}.csv"
         eval_table_path = self.result_root + f"SD2_depth2img/eval_logs/{identifier}.csv"
 
-        src_img_np, ground_depth_map = prepare_nyu_data(image, depth_map, image_resolution=image_resolution)
+        src_img_np, ground_depth_map, original_image_W = prepare_nyu_data(image, depth_map, image_resolution=image_resolution)
 
         predict_ground_depth_map = self.infer_depth_map(src_img_np, save_name=predict_ground_depth_path)
         predict_ground_depth_map = resize_image(predict_ground_depth_map, image_resolution)

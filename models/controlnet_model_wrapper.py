@@ -21,6 +21,9 @@ import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 
+import random
+random.seed(1)
+
 torch.cuda.empty_cache()
 torch.backends.cuda.matmul.allow_tf32 = True
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -30,12 +33,11 @@ print(f"---- Device found: {device} ----")
 BASE_MODEL_ID = "runwayml/stable-diffusion-v1-5"  # "SG161222/Realistic_Vision_V2.0"
 
 # Defaults ------------
-image_resolution = 512
-depth_resolution = 512
-default_num_steps = 30
+default_resolution = 512
+default_num_steps = 20
 default_conditioning_scale = [1.0, 0.7]
 default_guidance_scale = 7.5
-seed = 1825989188
+seed = 1
 
 
 class ControlNetModelWrapper:
@@ -460,6 +462,10 @@ class ControlNetModelWrapper:
             prompt_id = prompt[0:min(5, len(prompt))]
 
         identifier = f"{condition_id}_prompt_{prompt_id}_iter_{self.num_steps}_guide_{guidance_scale}_res_{self.resolution}"
+        # we want prompt to vary within evaluation
+        eval_identifier = f"{condition_id}_iter_{self.num_steps}_guide_{guidance_scale}_res_{self.resolution}"
+
+        eval_table_path = self.result_root + f"ControlNet/eval_logs/{eval_identifier}.csv"
 
         gen_img_save_name = self.result_root + f"ControlNet/2d_images/{i}_{identifier}.png"
         comparison_save_name = self.result_root + f"ControlNet/2d_images/{i}_comparison_{identifier}.png"
@@ -468,7 +474,7 @@ class ControlNetModelWrapper:
         heatmap_path = self.result_root + f"ControlNet/depth_map_heatmaps/{i}_depth_heatmap_{identifier}.png"
         gen_pcd_path = self.result_root + f"ControlNet/gen_point_clouds/{i}_gen_pcd_{identifier}"
 
-        eval_table_path = self.result_root + f"ControlNet/eval_logs/{identifier}.csv"
+        #eval_table_path = self.result_root + f"ControlNet/eval_logs/{identifier}.csv"
 
         # getting parameters to use for all scaling and cropping stages
 
@@ -550,7 +556,7 @@ class ControlNetModelWrapper:
 
         eval_results = self.evaluator.evaluate_sample(src_image, gen_img_np, ground_depth_map,
                                                       predict_ground_depth_map_aligned,
-                                                      predict_depth_map_aligned, id=i,
+                                                      predict_depth_map_aligned, id=i, prompt_id=prompt_id,
                                                       save_path=eval_table_path if save_eval else "")
 
         # if save_eval:
@@ -594,10 +600,10 @@ class ControlNetModelWrapper:
         eval_table_path = self.result_root + f"eval_logs/{identifier}.csv"
 
         # src_img_np, ground_condition_np = prepare_nyu_data(image, condition_data[i])
-        src_img_np, _, original_image_W = prepare_nyu_data(rgb_img=image, image_resolution=image_resolution)
+        src_img_np, _, original_image_W = prepare_nyu_data(rgb_img=image, image_resolution=self.resolution)
 
         predict_ground_depth_map = self.infer_depth_map(src_img_np, save_name=predict_ground_depth_path)
-        predict_ground_depth_map = resize_image(predict_ground_depth_map, image_resolution)
+        predict_ground_depth_map = resize_image(predict_ground_depth_map, self.resolution)
 
         if self.multi_condition:
             depth_condition, H, W = prepare_nyu_controlnet_depth(predict_ground_depth_map)
@@ -613,7 +619,7 @@ class ControlNetModelWrapper:
                                         H=H, W=W,
                                         guidance_scale=guidance_scale,
                                         conditioning_scale=conditioning_scale if self.multi_condition else 1.0,
-                                        num_inference_steps=num_inference_steps,
+                                        num_inference_steps=self.num_steps,
                                         save_name=gen_img_save_name,
                                         comparison_save_name=comparison_save_name)
 
@@ -707,7 +713,7 @@ if __name__ == "__main__":
     parser.add_argument('--multi_condition', type=bool, default=False)
     parser.add_argument('--cache_dir', type=str, default="")
     parser.add_argument('--display', type=bool, default=False)
-    parser.add_argument('--resolution', type=int, default=256)
+    parser.add_argument('--resolution', type=int, default=512)
 
     args = parser.parse_args()
     main(args)
