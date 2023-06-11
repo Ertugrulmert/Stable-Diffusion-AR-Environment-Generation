@@ -344,8 +344,7 @@ class ControlNetModelWrapper:
         print(f"in arcore, only_ground {only_ground}")
 
         if only_ground:
-            center_depth = (
-                                       predict_ground_depth_map_aligned.max() - predict_ground_depth_map_aligned.min()) / 2 - center_depth
+            center_depth = (predict_ground_depth_map_aligned.max() - predict_ground_depth_map_aligned.min()) / 2 - center_depth
             print(
                 f"mean depth: {(predict_ground_depth_map_aligned.max() - predict_ground_depth_map_aligned.min()) / 2}")
             print(
@@ -668,14 +667,19 @@ class ControlNetModelWrapper:
 
         condition_id = self.condition_type if not self.multi_condition else f"_{'_'.join(self.condition_type)}_"
 
-        identifier = f"{condition_id}_prompt_{prompt[0:min(5, len(prompt))]}_iter_{self.num_steps}_guide_{guidance_scale}"
+        #identifier = f"{condition_id}_prompt_{prompt[0:min(5, len(prompt))]}_iter_{self.num_steps}_guide_{guidance_scale}"
+
+        identifier = f"{condition_id}_"
+        if prompt:
+            identifier += prompt[0:min(5, len(prompt))]
+        identifier += f"iter_{self.num_steps}_guide_{guidance_scale}_res_{self.resolution}"
+
+        macro_eval_path = self.result_root + f"ControlNet/eval_logs/macro_eval_metrics_{identifier}.csv"
 
         if index_range[1]:
             identifier = identifier + f"_range_{index_range[0]}-{index_range[1]}"
         else:
             identifier = identifier + f"_range_{index_range[0]}-end"
-
-        macro_eval_path = self.result_root + "ControlNet/eval_logs/macro_eval_metrics.csv"
 
         self.evaluator.compute_macro_metrics(identifier=identifier, save_path=macro_eval_path)
 
