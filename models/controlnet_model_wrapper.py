@@ -172,7 +172,7 @@ class ControlNetModelWrapper:
 
             return output
 
-    def infer_seg_ade20k(self, image, i, save_name='', display=False):
+    def infer_seg_ade20k(self, image, i, save_name='', scaling_factor=None, display=False):
 
         # pixel_values = image_processor(image, return_tensors="pt").pixel_values
         inputs = self.image_processor(image, return_tensors="pt")
@@ -180,8 +180,12 @@ class ControlNetModelWrapper:
         with torch.no_grad():
             outputs = self.segmentation_model(**inputs)
 
-        temp_img = resize_image(image, self.resolution)
-        H, W = temp_img.shape[:2]
+        H, W = image.shape[:2]
+        if scaling_factor is not None:
+            H *= scaling_factor
+            W *= scaling_factor
+            H = int(np.round(H / 64.0)) * 64
+            W = int(np.round(W / 64.0)) * 64
 
         seg = self.image_processor.post_process_semantic_segmentation(outputs, target_sizes=[(H, W)])[0]
 
@@ -507,14 +511,16 @@ class ControlNetModelWrapper:
         if self.multi_condition:
             depth_condition, H, W = prepare_nyu_controlnet_depth(predict_ground_depth_map,
                                                                     scaling_factor=scaling_factor)
-            seg_condition, _, _ = self.infer_seg_ade20k(src_image, i, save_name=condition_img_path)
+            seg_condition, _, _ = self.infer_seg_ade20k(src_image, i, scaling_factor=scaling_factor,
+                                                        save_name=condition_img_path)
             ground_condition = [depth_condition, seg_condition]
         elif self.condition_type == "depth":
             ground_condition, H, W = prepare_nyu_controlnet_depth(predict_ground_depth_map,
                                                                      scaling_factor=scaling_factor)
         else:  # seg
             # ground_condition, H, W = prepare_nyu_controlnet_seg(ground_condition_np, num_classes=num_classes)
-            ground_condition, H, W = self.infer_seg_ade20k(src_image, i, save_name=condition_img_path)
+            ground_condition, H, W = self.infer_seg_ade20k(src_image, i, scaling_factor=scaling_factor,
+                                                           save_name=condition_img_path)
 
         print(f"ground_depth_map max: {ground_depth_map.max()} | min: {ground_depth_map.min()}")
         print(
