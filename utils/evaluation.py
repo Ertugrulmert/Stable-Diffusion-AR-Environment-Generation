@@ -22,6 +22,9 @@ def compute_errors(gt, pred):
     num_valid_pixels = np.sum(gt > 0)
 
     thresh = np.maximum((gt / pred), (pred / gt))
+
+    avg_thresh = np.mean(thresh * np.minimum(gt, pred) - 1)
+
     a1 = (thresh < 1.25).sum() / num_valid_pixels
     a2 = (thresh < 1.25 ** 2).sum() / num_valid_pixels
     a3 = (thresh < 1.25 ** 3).sum() / num_valid_pixels
@@ -42,24 +45,24 @@ def compute_errors(gt, pred):
     behind_rate = np.count_nonzero((pred - gt) > 0) / num_valid_pixels
 
 
-    return abs_rel, sq_rel, rmse, rmse_log, a1, a2, a3, behind_avg, behind_rel, behind_rate
+    return abs_rel, sq_rel, rmse, rmse_log, a1, a2, a3, avg_thresh, behind_avg, behind_rel, behind_rate
 
 
 class Evaluator:
     columns = ['id', 'propmt_id', 'LPIPS', 'CLIPScore',
                "GR-Abs-Rel", "GR-Sqr-Rel", "GR-RMSE", "GR-RMSE-log", "GR-thresh-1", "GR-thresh-2", "GR-thresh-3", \
-               "GR-behind-Avg", "GR-behind-Rel", "GR-behind-Rate",  \
+               "GR-avg-thresh", "GR-behind-Avg", "GR-behind-Rel", "GR-behind-Rate",  \
                "Pred-GR-Abs-Rel", "Pred-GR-Sqr-Rel", "Pred-GR-RMSE", "Pred-GR-RMSE-log", \
                "Pred-GR-thresh-1", "Pred-GR-thresh-2", "Pred-GR-thresh-3", \
-               "Pred-GR-behind-Avg", "Pred-GR-behind-Rel", "Pred-GR-behind-Rate", \
+               "Pred-GR-avg-thresh", "Pred-GR-behind-Avg", "Pred-GR-behind-Rel", "Pred-GR-behind-Rate", \
                "Pred-Gen-Abs-Rel", "Pred-Gen-Sqr-Rel", "Pred-Gen-RMSE", "Pred-Gen-RMSE-log", \
                "Pred-Gen-thresh-1", "Pred-Gen-thresh-2", "Pred-Gen-thresh-3",
-               "Pred-Gen-behind-Avg", "Pred-Gen-behind-Rel", "Pred-Gen-behind-Rate"]
+               "Pred-Gen-avg-thresh", "Pred-Gen-behind-Avg", "Pred-Gen-behind-Rel", "Pred-Gen-behind-Rate"]
 
     noground_columns = ['id', 'propmt_id', 'LPIPS', 'CLIPScore',
                "Pred-GR-Abs-Rel", "Pred-GR-Sqr-Rel", "Pred-GR-RMSE", "Pred-GR-RMSE-log", \
                "Pred-GR-thresh-1", "Pred-GR-thresh-2", "Pred-GR-thresh-3", \
-               "Pred-GR-behind-Avg", "Pred-GR-behind-Rel", "Pred-GR-behind-Rate"]
+               "Pred-GR-avg-thresh", "Pred-GR-behind-Avg", "Pred-GR-behind-Rel", "Pred-GR-behind-Rate"]
 
     macro_columns = ['identifier', 'FID', 'IS_mean', 'IS_std']
 
@@ -160,17 +163,17 @@ class Evaluator:
             # -- Depth Map Evaluation
 
             # -- Ground vs Predicted Ground
-            g_pg_abs_rel, g_pg_sq_rel, g_pg_rmse, g_pg_rmse_log, g_pg_a1, g_pg_a2, g_pg_a3, g_pg_b_avg, g_pg_b_rel, g_pg_b_rate = compute_errors(
+            g_pg_abs_rel, g_pg_sq_rel, g_pg_rmse, g_pg_rmse_log, g_pg_a1, g_pg_a2, g_pg_a3, g_pg_avg_thresh, g_pg_b_avg, g_pg_b_rel, g_pg_b_rate = compute_errors(
                 ground_depth_map, predict_ground_depth_map_aligned)
 
             # -- Predicted Ground vs Predicted Generated
 
-            pg_pgen_abs_rel, pg_pgen_sq_rel, pg_pgen_rmse, pg_pgen_rmse_log, pg_pgen_a1, pg_pgen_a2, pg_pgen_a3, pg_pgen_b_avg, pg_pgen_b_rel, pg_pgen_b_rate = compute_errors(
+            pg_pgen_abs_rel, pg_pgen_sq_rel, pg_pgen_rmse, pg_pgen_rmse_log, pg_pgen_a1, pg_pgen_a2, pg_pgen_a3, pg_pgen_avg_thresh, pg_pgen_b_avg, pg_pgen_b_rel, pg_pgen_b_rate = compute_errors(
                 predict_ground_depth_map_aligned, predict_depth_map_aligned)
 
             # -- Ground vs Predicted Generated
 
-            g_pgen_abs_rel, g_pgen_sq_rel, g_pgen_rmse, g_pgen_rmse_log, g_pgen_a1, g_pgen_a2, g_pgen_a3, g_pgen_b_avg, g_pgen_b_rel, g_pgen_b_rate = compute_errors(
+            g_pgen_abs_rel, g_pgen_sq_rel, g_pgen_rmse, g_pgen_rmse_log, g_pgen_a1, g_pgen_a2, g_pgen_a3, g_pgen_avg_thresh, g_pgen_b_avg, g_pgen_b_rel, g_pgen_b_rate = compute_errors(
                 ground_depth_map, predict_depth_map_aligned)
 
             df.loc[i] = [i,  # fid_score,
@@ -179,13 +182,13 @@ class Evaluator:
                          # inception_score,
                          clip_score,
                          g_pg_abs_rel, g_pg_sq_rel, g_pg_rmse, g_pg_rmse_log,
-                         g_pg_a1, g_pg_a2, g_pg_a3,
+                         g_pg_a1, g_pg_a2, g_pg_a3, g_pg_avg_thresh,
                          g_pg_b_avg, g_pg_b_rel, g_pg_b_rate,
                          pg_pgen_abs_rel, pg_pgen_sq_rel, pg_pgen_rmse, pg_pgen_rmse_log,
-                         pg_pgen_a1, pg_pgen_a2,pg_pgen_a3,
+                         pg_pgen_a1, pg_pgen_a2,pg_pgen_a3, pg_pgen_avg_thresh,
                          pg_pgen_b_avg, pg_pgen_b_rel, pg_pgen_b_rate,
                          g_pgen_abs_rel, g_pgen_sq_rel, g_pgen_rmse, g_pgen_rmse_log,
-                         g_pgen_a1, g_pgen_a2, g_pgen_a3,
+                         g_pgen_a1, g_pgen_a2, g_pgen_a3, g_pgen_avg_thresh,
                          g_pgen_b_avg, g_pgen_b_rel, g_pgen_b_rate]
 
             # storing tensors for metric that require multiple samples
@@ -245,30 +248,30 @@ class Evaluator:
 
         # -- Ground vs Predicted Ground
 
-        g_pg_abs_rel, g_pg_sq_rel, g_pg_rmse, g_pg_rmse_log, g_pg_a1, g_pg_a2, g_pg_a3, g_pg_b_avg, g_pg_b_rel, g_pg_b_rate = compute_errors(
+        g_pg_abs_rel, g_pg_sq_rel, g_pg_rmse, g_pg_rmse_log, g_pg_a1, g_pg_a2, g_pg_a3, g_pg_avg_thresh, g_pg_b_avg, g_pg_b_rel, g_pg_b_rate = compute_errors(
             ground_depth_map, predict_ground_depth_map)
 
         # -- Predicted Ground vs Predicted Generated
 
-        pg_pgen_abs_rel, pg_pgen_sq_rel, pg_pgen_rmse, pg_pgen_rmse_log, pg_pgen_a1, pg_pgen_a2, pg_pgen_a3, pg_pgen_b_avg, pg_pgen_b_rel, pg_pgen_b_rate = compute_errors(
+        pg_pgen_abs_rel, pg_pgen_sq_rel, pg_pgen_rmse, pg_pgen_rmse_log, pg_pgen_a1, pg_pgen_a2, pg_pgen_a3, pg_pgen_avg_thresh, pg_pgen_b_avg, pg_pgen_b_rel, pg_pgen_b_rate = compute_errors(
             predict_ground_depth_map, predict_depth_map)
 
         # -- Ground vs Predicted Generated
 
-        g_pgen_abs_rel, g_pgen_sq_rel, g_pgen_rmse, g_pgen_rmse_log, g_pgen_a1, g_pgen_a2, g_pgen_a3, g_pgen_b_avg, g_pgen_b_rel, g_pgen_b_rate = compute_errors(
+        g_pgen_abs_rel, g_pgen_sq_rel, g_pgen_rmse, g_pgen_rmse_log, g_pgen_a1, g_pgen_a2, g_pgen_a3, g_pgen_avg_thresh, g_pgen_b_avg, g_pgen_b_rel, g_pgen_b_rate = compute_errors(
             ground_depth_map, predict_depth_map)
 
         df.loc[0] = [id, prompt_id,
                      lpips_score.item(),
                      clip_score,
                      g_pg_abs_rel, g_pg_sq_rel, g_pg_rmse, g_pg_rmse_log,
-                     g_pg_a1, g_pg_a2, g_pg_a3,
+                     g_pg_a1, g_pg_a2, g_pg_a3, g_pg_avg_thresh,
                      g_pg_b_avg, g_pg_b_rel, g_pg_b_rate,
                      pg_pgen_abs_rel, pg_pgen_sq_rel, pg_pgen_rmse, pg_pgen_rmse_log,
-                     pg_pgen_a1, pg_pgen_a2, pg_pgen_a3,
+                     pg_pgen_a1, pg_pgen_a2, pg_pgen_a3, pg_pgen_avg_thresh,
                      pg_pgen_b_avg, pg_pgen_b_rel, pg_pgen_b_rate,
                      g_pgen_abs_rel, g_pgen_sq_rel, g_pgen_rmse, g_pgen_rmse_log,
-                     g_pgen_a1, g_pgen_a2, g_pgen_a3,
+                     g_pgen_a1, g_pgen_a2, g_pgen_a3, g_pgen_avg_thresh,
                      g_pgen_b_avg, g_pgen_b_rel, g_pgen_b_rate]
 
         if save_path:
@@ -300,7 +303,7 @@ class Evaluator:
 
         # -- Predicted Ground vs Predicted Generated
 
-        pg_pgen_abs_rel, pg_pgen_sq_rel, pg_pgen_rmse, pg_pgen_rmse_log, pg_pgen_a1, pg_pgen_a2, pg_pgen_a3, pg_pgen_b_avg, pg_pgen_b_rel, pg_pgen_b_rate = compute_errors(
+        pg_pgen_abs_rel, pg_pgen_sq_rel, pg_pgen_rmse, pg_pgen_rmse_log, pg_pgen_a1, pg_pgen_a2, pg_pgen_a3, pg_pgen_avg_thresh, pg_pgen_b_avg, pg_pgen_b_rel, pg_pgen_b_rate = compute_errors(
             predict_ground_depth_map_aligned, predict_depth_map_aligned)
 
         df.loc[0] = [id,
@@ -308,7 +311,7 @@ class Evaluator:
                      lpips_score.item(),
                      clip_score,
                      pg_pgen_abs_rel, pg_pgen_sq_rel, pg_pgen_rmse, pg_pgen_rmse_log,
-                     pg_pgen_a1, pg_pgen_a2, pg_pgen_a3,
+                     pg_pgen_a1, pg_pgen_a2, pg_pgen_a3, pg_pgen_avg_thresh,
                      pg_pgen_b_avg, pg_pgen_b_rel, pg_pgen_b_rate]
 
         if save_path:

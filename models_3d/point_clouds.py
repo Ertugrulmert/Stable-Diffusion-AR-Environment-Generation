@@ -16,7 +16,7 @@ import matplotlib.cm as cm
 from utils.preprocessing import *
 
 
-def get_point_cloud(rgb_image, depth_image, pcd_path="", display=False):
+def get_point_cloud(rgb_image, depth_image, camIntrinsics="", pcd_path="", display=False):
 
     print("get point cloud")
     print(f"rgb shape {rgb_image.shape}")
@@ -28,11 +28,32 @@ def get_point_cloud(rgb_image, depth_image, pcd_path="", display=False):
         o3d.geometry.Image(rgb_image), o3d.geometry.Image(new_depth_image),
         depth_scale=1, convert_rgb_to_intensity=False)
 
+    if camIntrinsics is not None and camIntrinsics:
+        print(f"process intrinsic here {camIntrinsics}")
+    """
+    2023 / 06 / 18
+    12: 56:05.716
+    14469
+    29876
+    Info
+    Unity
+    Camera
+    intrinsics
+    {'focalLength.x': 482.2705, 'focalLength.y': 483.8367, 'principalPoint.x': 320.5844, 'principalPoint.y': 236.8517,
+     'resolution.x': 640, 'resolution.y': 480}"""
+
     pcd = o3d.geometry.PointCloud.create_from_rgbd_image(
         rgbd_image,
-        o3d.camera.PinholeCameraIntrinsic(
-            o3d.camera.PinholeCameraIntrinsicParameters.PrimeSenseDefault))
+        #o3d.camera.PinholeCameraIntrinsic(
+        #    o3d.camera.PinholeCameraIntrinsicParameters.PrimeSenseDefault))
+
+        o3d.camera.PinholeCameraIntrinsic(480, 640, 483.8367, 482.2705, 236.8517, 320.5844))
+
+    #o3d.camera.PinholeCameraIntrinsic(width, height, fx, fy, cx, cy)
+
     pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.0104, max_nn=12))
+
+
 
     # Flip it, otherwise the point cloud will be upside down
     pcd.transform([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]])

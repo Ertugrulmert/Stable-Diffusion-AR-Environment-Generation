@@ -81,6 +81,9 @@ def upload_file():
         #print(f"confidenceHeight: {confidenceHeight}")
         print(f"cam_rotation: {cam_rotation}")
 
+        camIntrinsics = request.form.get("camIntrinsics")
+        print(f"camIntrinsics: {camIntrinsics}")
+
         only_ground = True
         if request.form.get("isGenerative") is not None:
             print(request.form.get("isGenerative"))
@@ -101,6 +104,7 @@ def upload_file():
         else:
             mesh_name, material_name, texture_name = handler.process_arcore_generative(rgb_filepath, depth_filepath,
                                                                                        cam_rotation, i=timestamp,
+                                                                                       camIntrinsics=camIntrinsics,
                                                                                        only_ground=only_ground,
                                                                                        prompt=prompt)
 
@@ -178,15 +182,18 @@ def download_file(filename):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--cache_dir', type=str, default="")
-    parser.add_argument('--resolution', type=int, default=256)
-    parser.add_argument('--num_steps', type=int, default=30)
+    parser.add_argument('--resolution', type=int, default=512)
+    parser.add_argument('--num_steps', type=int, default=20)
+    parser.add_argument('--condition_type', type=str, default="depth")
     args = parser.parse_args()
 
     if args.cache_dir:
-        handler = ARCoreHandler(data_root=UPLOAD_FOLDER, resolution=args.resolution, num_steps=args.num_steps, cache_dir=args.cache_dir,
+        handler = ARCoreHandler(data_root=UPLOAD_FOLDER, resolution=args.resolution, num_steps=args.num_steps,
+                                cache_dir=args.cache_dir,
                                 only_ground=False)
     else:
-        handler = ARCoreHandler(data_root=UPLOAD_FOLDER, resolution=args.resolution, num_steps=args.num_steps, only_ground=False)
+        handler = ARCoreHandler(data_root=UPLOAD_FOLDER, resolution=args.resolution, num_steps=args.num_steps,
+                                condition_type=args.condition_type, only_ground=False)
 
     app.secret_key = 'super secret key'
     app.config['SESSION_TYPE'] = 'filesystem'

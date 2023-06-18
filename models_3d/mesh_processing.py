@@ -27,7 +27,7 @@ def process_mesh_ball_pivoting(ground_pcd_path, full_mesh_path_obj, i):
     ms.save_current_mesh(full_mesh_path_obj)
 
 
-def process_mesh_marching_cubes(ground_pcd_path, full_mesh_path_obj, i, center_depth, cam_rotation):
+def process_mesh_marching_cubes(ground_pcd_path, full_mesh_path_obj, i, center_depth, cam_rotation=0):
     ms = pymeshlab.MeshSet()
     ms.clear()
     ms.load_new_mesh(ground_pcd_path)
@@ -39,9 +39,9 @@ def process_mesh_marching_cubes(ground_pcd_path, full_mesh_path_obj, i, center_d
 
     #ms.apply_filter("compute_matrix_from_translation", axisx=0.5)
 
-    ms.apply_filter('compute_matrix_from_scaling_or_normalization', axisx=2)
+    #ms.apply_filter('compute_matrix_from_scaling_or_normalization', axisx=2)
 
-    ms.apply_filter("compute_matrix_from_translation", axisz=center_depth*2)
+    ms.apply_filter("compute_matrix_from_translation", axisz=center_depth)
 
     # if cam_rotation is not None:
 

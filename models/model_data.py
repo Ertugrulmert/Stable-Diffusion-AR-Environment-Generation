@@ -40,8 +40,8 @@ class ModelData:
     interior_design_prompt_1 = "Intricate, Ornate, Embellished, Elaborate, Detailed, Decorative, Intricately-crafted, Luxurious, Ornamented, and Artistic cloak, open book, sparks, cozy library in background, furniture, fire place, food, wine, pet, chandelier, High Definition, Night time, Photorealism, realistic"
     interior_design_prompt_2 = "Residential home high end futuristic interior, olson kundig, Interior Design by Dorothy Draper, maison de verre, axel vervoordt, award winning photography of an indoor-outdoor living library space, minimalist modern designs, high end indoor/outdoor residential living space, rendered in vray, rendered in octane, rendered in unreal engine, architectural photography, photorealism, featured in dezeen, cristobal palma. 5 chaparral landscape outside, black surfaces/textures for furnishings in outdoor space"
 
-    additional_prompt = ',a detailed high-quality professional image'
-    negative_prompt = 'longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality'
+    additional_prompt = ', a detailed high-quality professional image'
+    negative_prompt = ', lowres, cropped, worst quality, low quality'
 
     """ADE20K palette that maps each class to RGB values."""
     ade_palette = np.array([[120, 120, 120], [180, 120, 120], [6, 230, 230], [80, 50, 50],

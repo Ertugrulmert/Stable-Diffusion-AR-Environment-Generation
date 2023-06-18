@@ -38,7 +38,7 @@ def crop_image(image, crop_rate, croph=True, cropw=True):
 
 
 def prepare_arcore_data(rgb_filepath, depth_filepath, confidence_filepath=None, image_resolution=512, crop_rate=0,
-                        depth_H=90, depth_W=160):
+                        depth_H=90, depth_W=160, crop=False):
     rgb_image = cv2.imread(rgb_filepath)
     rgb_image = cv2.rotate(rgb_image, cv2.ROTATE_90_CLOCKWISE)
     rgb_image = cv2.flip(rgb_image, 0)
@@ -75,6 +75,8 @@ def prepare_arcore_data(rgb_filepath, depth_filepath, confidence_filepath=None, 
     depth_padded = np.pad(depth_resized, ((0, 0), (pad_val, pad_val)), mode='constant')
     
     """
+
+
     rgb_H = rgb_image.shape[0]
     # depth image must be resized initially to have the same height as color image
     print(f"before initial resize depth: {depthMap.shape}")
@@ -85,15 +87,23 @@ def prepare_arcore_data(rgb_filepath, depth_filepath, confidence_filepath=None, 
 
     print(f"before initial crop rgb: {rgb_image.shape}")
 
-    rgb_crop_val = int((rgb_w - d_w) / 2)
-    rgb_image = rgb_image[:, rgb_crop_val:rgb_w - rgb_crop_val, :]
-    print(f"initial cropped rgb: {rgb_image.shape}")
+    if crop:
+        rgb_crop_val = int((rgb_w - d_w) / 2)
+        rgb_image = rgb_image[:, rgb_crop_val:rgb_w - rgb_crop_val, :]
+        print(f"initial cropped rgb: {rgb_image.shape}")
+
+    else:
+        rgb_crop_val=0
+        pad_val = int((rgb_w - d_w) / 2)
+        depth_resized = np.pad(depth_resized, ((0, 0), (pad_val, pad_val)), mode='constant')
+
+    """
 
     # adjust according to crop for 64
-    original_image_W = rgb_image.shape[1] - rgb_image.shape[1] % 64
+    original_image_W = rgb_image_resized.shape[1] - rgb_image_resized.shape[1] % 64
 
     # resize to desired resolution
-    rgb_image_resized = resize_image(rgb_image, image_resolution, crop=True)
+    rgb_image_resized = resize_image(rgb_image_resized, image_resolution, crop=True)
     depth_resized = resize_image(depth_resized, image_resolution, is_depth=True, crop=True)  # ref_min=False,
 
     print(f"after res resize rgb: {rgb_image_resized.shape}")
@@ -114,7 +124,11 @@ def prepare_arcore_data(rgb_filepath, depth_filepath, confidence_filepath=None, 
 
         print(f"prepare_arcore_data after crop_rate max: {depth_resized.max()} | min: {depth_resized.min()}")
 
-    return rgb_image_resized, depth_resized, original_image_W
+    """
+
+    #return rgb_image_resized, depth_resized, original_image_W
+
+    return rgb_image, depth_resized, rgb_crop_val
 
 
 def prepare_nyu_data(rgb_img=None, condition_img=None, image_resolution=512):
