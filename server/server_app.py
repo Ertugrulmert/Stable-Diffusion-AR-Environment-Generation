@@ -185,15 +185,17 @@ if __name__ == '__main__':
     parser.add_argument('--resolution', type=int, default=512)
     parser.add_argument('--num_steps', type=int, default=20)
     parser.add_argument('--condition_type', type=str, default="depth")
+    parser.add_argument('--multi_condition', type=bool, default=False)
     args = parser.parse_args()
 
     if args.cache_dir:
         handler = ARCoreHandler(data_root=UPLOAD_FOLDER, resolution=args.resolution, num_steps=args.num_steps,
-                                cache_dir=args.cache_dir,
+                                multi_condition=args.multi_condition, cache_dir=args.cache_dir,
                                 only_ground=False)
     else:
         handler = ARCoreHandler(data_root=UPLOAD_FOLDER, resolution=args.resolution, num_steps=args.num_steps,
-                                condition_type=args.condition_type, only_ground=False)
+                                condition_type=args.condition_type, multi_condition=args.multi_condition,
+                                only_ground=False)
 
     app.secret_key = 'super secret key'
     app.config['SESSION_TYPE'] = 'filesystem'

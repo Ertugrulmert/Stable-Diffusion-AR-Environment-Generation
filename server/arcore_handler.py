@@ -13,11 +13,12 @@ class ARCoreHandler:
                  resolution=384,
                  num_steps=20,
                  condition_type="depth",
+                 multi_condition=False,
                  cache_dir="",
                  only_ground=True):
         self.data_root = data_root
 
-        self.model = ControlNetModelWrapper(condition_type=condition_type, multi_condition=False, only_ground=only_ground,
+        self.model = ControlNetModelWrapper(condition_type=condition_type, multi_condition=multi_condition, only_ground=only_ground,
                                             result_root=data_root,
                                             resolution=resolution,
                                             num_steps=num_steps,

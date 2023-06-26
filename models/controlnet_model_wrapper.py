@@ -220,8 +220,8 @@ class ControlNetModelWrapper:
         return control_image, H, W
 
     def infer_controlnet(self, source_image, prompt, H, W, guidance_scale=7.5, conditioning_scale=1.0,
-                         condition_image=None,
-                         num_inference_steps=50, save_name='', comparison_save_name='', display=False):
+                         condition_image=None, num_inference_steps=10, save_name='', comparison_save_name='',
+                         display=False):
 
         generator = torch.Generator().manual_seed(seed)
 

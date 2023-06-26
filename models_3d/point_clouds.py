@@ -6,9 +6,8 @@ sys.path.append(parent_dir)
 from PIL import Image
 import numpy as np
 import open3d as o3d
-import cv2
+import cv2, json, ast
 import matplotlib.pyplot as plt
-import json
 
 import matplotlib as mpl
 import matplotlib.cm as cm
@@ -29,7 +28,25 @@ def get_point_cloud(rgb_image, depth_image, camIntrinsics="", pcd_path="", displ
         depth_scale=1, convert_rgb_to_intensity=False)
 
     if camIntrinsics is not None and camIntrinsics:
-        print(f"process intrinsic here {camIntrinsics}")
+        print("Intrinsics received.")
+
+        intrinsic_dict = ast.literal_eval(camIntrinsics)
+
+        width = intrinsic_dict['resolution.y']
+        height = intrinsic_dict['resolution.x']
+        fx = intrinsic_dict['focalLength.y']
+        fy = intrinsic_dict['focalLength.x']
+        cx = intrinsic_dict['principalPoint.y']
+        cy = intrinsic_dict['principalPoint.x']
+    else:
+        print("Intrinsics not received. Using default intrinsics.")
+        width = 480
+        height = 640
+        fx = 483.8367
+        fy = 482.2705
+        cx = 236.8517
+        cy = 320.5844
+
     """
     2023 / 06 / 18
     12: 56:05.716
@@ -46,8 +63,7 @@ def get_point_cloud(rgb_image, depth_image, camIntrinsics="", pcd_path="", displ
         rgbd_image,
         #o3d.camera.PinholeCameraIntrinsic(
         #    o3d.camera.PinholeCameraIntrinsicParameters.PrimeSenseDefault))
-
-        o3d.camera.PinholeCameraIntrinsic(480, 640, 483.8367, 482.2705, 236.8517, 320.5844))
+        o3d.camera.PinholeCameraIntrinsic(width, height, fx, fy, cx, cy))
 
     #o3d.camera.PinholeCameraIntrinsic(width, height, fx, fy, cx, cy)
 
