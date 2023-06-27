@@ -545,6 +545,15 @@ class ControlNetModelWrapper:
 
         print(f"img shape {src_image.shape}")
 
+        # set new resolution for incoming image
+        # because NYU images have W > H, to keep resolution effects comparable to the mobile application, we change resolution first:
+        self.max_resolution = 640/480 * self.max_resolution
+
+
+        self.resolution = min(src_image.shape[1] + 64 - src_image.shape[1] % 64, self.max_resolution)
+
+
+
         H_original, W_original, H_resize, W_resize, scaling_factor, H_upsample, W_upsample = \
             get_sizing_params(resolution=self.resolution, original_shape=src_image.shape, round_down=False)
 
