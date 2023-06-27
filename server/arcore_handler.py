@@ -18,7 +18,8 @@ class ARCoreHandler:
                  only_ground=True):
         self.data_root = data_root
 
-        self.model = ControlNetModelWrapper(condition_type=condition_type, multi_condition=multi_condition, only_ground=only_ground,
+        self.model = ControlNetModelWrapper(condition_type=condition_type, multi_condition=multi_condition,
+                                            only_ground=only_ground,
                                             result_root=data_root,
                                             resolution=resolution,
                                             num_steps=num_steps,
@@ -60,21 +61,10 @@ class ARCoreHandler:
 
     def process_arcore_generative(self, rgb_filepath, depth_filepath, cam_rotation, i=0, camIntrinsics="",
                                   only_ground=False, prompt=""):
-        mesh_name = f"{i}_mesh.obj"
-        material_name = f"{i}_mesh.obj.mtl"
-        texture_name = f"{i}_mesh.png"
-        relative_mesh_path_obj = os.path.join("processed_user_data", f"{i}_mesh.obj")
-        full_mesh_path_obj = os.path.join(self.data_root, f"{relative_mesh_path_obj}")
 
-        pcd_path, center_depth = self.model.run_ARCore_pipeline(rgb_filepath, depth_filepath, i=i, prompt=prompt,
-                                                                camIntrinsics=camIntrinsics,
-                                                                only_ground=only_ground, display=False, save_eval=True)
-
-        # -- NEW CODE
-        mesh_processing.process_mesh_marching_cubes(pcd_path, full_mesh_path_obj, i, center_depth / 10,
-                                                    cam_rotation)
-
-        return mesh_name, material_name, texture_name
+        return self.model.run_ARCore_pipeline(rgb_filepath, depth_filepath, i=i, prompt=prompt,
+                                              camIntrinsics=camIntrinsics,
+                                              only_ground=only_ground, display=False, save_eval=True)
 
     def get_serialized_object(self, path):
         # mesh = o3d.io.read_triangle_mesh(mesh_path)

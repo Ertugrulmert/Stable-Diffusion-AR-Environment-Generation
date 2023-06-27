@@ -27,7 +27,7 @@ def process_mesh_ball_pivoting(ground_pcd_path, full_mesh_path_obj, i):
     ms.save_current_mesh(full_mesh_path_obj)
 
 
-def process_mesh_marching_cubes(ground_pcd_path, full_mesh_path_obj, i, center_depth, cam_rotation=0):
+def process_mesh_marching_cubes(ground_pcd_path, full_mesh_path_obj, i, center_depth=0, cam_rotation=0):
     ms = pymeshlab.MeshSet()
     ms.clear()
     ms.load_new_mesh(ground_pcd_path)
@@ -41,7 +41,8 @@ def process_mesh_marching_cubes(ground_pcd_path, full_mesh_path_obj, i, center_d
 
     #ms.apply_filter('compute_matrix_from_scaling_or_normalization', axisx=2)
 
-    ms.apply_filter("compute_matrix_from_translation", axisz=center_depth)
+    if center_depth:
+        ms.apply_filter("compute_matrix_from_translation", axisz=center_depth)
 
     # if cam_rotation is not None:
 
@@ -61,6 +62,8 @@ def process_mesh_marching_cubes(ground_pcd_path, full_mesh_path_obj, i, center_d
     ms.apply_filter("compute_normal_for_point_clouds", flipflag=True, k=100)
     end = time.time()
     print(f"compute_normal_for_point_clouds | time: {end - start}")
+
+    ground_pcd_id = ms.current_mesh_id()
 
     start = time.time()
     ms.apply_filter("generate_simplified_point_cloud", samplenum=40000)
@@ -116,4 +119,24 @@ def process_mesh_marching_cubes(ground_pcd_path, full_mesh_path_obj, i, center_d
     ms.compute_texmap_from_color(textname=f"{i}_mesh")  # , textw=256, texth=256)
 
     ms.apply_filter("apply_normal_normalization_per_vertex")
+
+    result_mesh_id = ms.current_mesh_id()
+
+    res_dict = ms.apply_filter('hausdorff_distance', targetmesh=result_mesh_id, sampledmesh=ground_pcd_id)
+
     ms.save_current_mesh(full_mesh_path_obj)
+
+    return res_dict['mean']
+
+
+def get_hausdorff_distance(ground_obj_path, gen_obj_path):
+    ms = pymeshlab.MeshSet()
+    ms.clear()
+    ms.load_new_mesh(ground_obj_path)
+    ground_mesh_id = ms.current_mesh_id()
+    ms.load_new_mesh(gen_obj_path)
+    gen_mesh_id = ms.current_mesh_id()
+
+    res_dict = ms.apply_filter('hausdorff_distance', targetmesh=gen_mesh_id, sampledmesh=ground_mesh_id)
+
+    return res_dict['mean']

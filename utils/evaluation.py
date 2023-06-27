@@ -57,12 +57,14 @@ class Evaluator:
                "Pred-GR-avg-thresh", "Pred-GR-behind-Avg", "Pred-GR-behind-Rel", "Pred-GR-behind-Rate", \
                "Pred-Gen-Abs-Rel", "Pred-Gen-Sqr-Rel", "Pred-Gen-RMSE", "Pred-Gen-RMSE-log", \
                "Pred-Gen-thresh-1", "Pred-Gen-thresh-2", "Pred-Gen-thresh-3",
-               "Pred-Gen-avg-thresh", "Pred-Gen-behind-Avg", "Pred-Gen-behind-Rel", "Pred-Gen-behind-Rate"]
+               "Pred-Gen-avg-thresh", "Pred-Gen-behind-Avg", "Pred-Gen-behind-Rel", "Pred-Gen-behind-Rate",
+               "gen_hausdorff", "mesh_hausdorff"]
 
     noground_columns = ['id', 'propmt_id', 'LPIPS', 'CLIPScore',
                "Pred-GR-Abs-Rel", "Pred-GR-Sqr-Rel", "Pred-GR-RMSE", "Pred-GR-RMSE-log", \
                "Pred-GR-thresh-1", "Pred-GR-thresh-2", "Pred-GR-thresh-3", \
-               "Pred-GR-avg-thresh", "Pred-GR-behind-Avg", "Pred-GR-behind-Rel", "Pred-GR-behind-Rate"]
+               "Pred-GR-avg-thresh", "Pred-GR-behind-Avg", "Pred-GR-behind-Rel", "Pred-GR-behind-Rate",
+               "gen_hausdorff", "mesh_hausdorff"]
 
     macro_columns = ['identifier', 'FID', 'IS_mean', 'IS_std']
 
@@ -83,7 +85,8 @@ class Evaluator:
         tokens = tokens[0:min(len(tokens), token_limit)]
         self.prompt = ' '.join(tokens)
 
-    def evaluate_set(self, dataset_path, result_root, condition_type="seg", prompt=ModelData.interior_design_prompt_1,
+    def evaluate_set(self, dataset_path, result_root, mean_generation_dist, mean_meshing_dist, condition_type="seg",
+                     prompt=ModelData.interior_design_prompt_1,
                      index_range=(0, 0), prompt_id = ""):
 
         self.set_prompt(prompt)
@@ -189,7 +192,8 @@ class Evaluator:
                          pg_pgen_b_avg, pg_pgen_b_rel, pg_pgen_b_rate,
                          g_pgen_abs_rel, g_pgen_sq_rel, g_pgen_rmse, g_pgen_rmse_log,
                          g_pgen_a1, g_pgen_a2, g_pgen_a3, g_pgen_avg_thresh,
-                         g_pgen_b_avg, g_pgen_b_rel, g_pgen_b_rate]
+                         g_pgen_b_avg, g_pgen_b_rel, g_pgen_b_rate,
+                         mean_generation_dist, mean_meshing_dist]
 
             # storing tensors for metric that require multiple samples
             src_images.append(src_img_tensor)
@@ -222,7 +226,7 @@ class Evaluator:
         return df, fid_score, inception_score
 
     def evaluate_sample(self, src_img_np, gen_img_np, ground_depth_map, predict_ground_depth_map, predict_depth_map,
-                        prompt="", id=0, save_path="", prompt_id = ""):
+                         mean_generation_dist, mean_meshing_dist, prompt="", id=0, save_path="", prompt_id = ""):
         if prompt:
             self.set_prompt(prompt)
         df = pd.DataFrame(columns=self.columns)
@@ -272,7 +276,8 @@ class Evaluator:
                      pg_pgen_b_avg, pg_pgen_b_rel, pg_pgen_b_rate,
                      g_pgen_abs_rel, g_pgen_sq_rel, g_pgen_rmse, g_pgen_rmse_log,
                      g_pgen_a1, g_pgen_a2, g_pgen_a3, g_pgen_avg_thresh,
-                     g_pgen_b_avg, g_pgen_b_rel, g_pgen_b_rate]
+                     g_pgen_b_avg, g_pgen_b_rel, g_pgen_b_rate,
+                     mean_generation_dist, mean_meshing_dist]
 
         if save_path:
             df.to_csv(save_path, mode='a', index=False, header=False)
