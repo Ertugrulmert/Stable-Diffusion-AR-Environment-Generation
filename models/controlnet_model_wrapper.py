@@ -500,6 +500,11 @@ class ControlNetModelWrapper:
                      prompt_id=None,
                      original_image_W=None):
 
+        self.max_resolution = 640/480 * self.max_resolution
+
+
+        self.resolution = min(src_image.shape[1] + 64 - src_image.shape[1] % 64, self.max_resolution)
+
         # if not prompt is given, randomly assign a prompt
         if not prompt:
             prompt_id = randrange(len(ModelData.PROMPT_LIST))
@@ -547,10 +552,6 @@ class ControlNetModelWrapper:
 
         # set new resolution for incoming image
         # because NYU images have W > H, to keep resolution effects comparable to the mobile application, we change resolution first:
-        self.max_resolution = 640/480 * self.max_resolution
-
-
-        self.resolution = min(src_image.shape[1] + 64 - src_image.shape[1] % 64, self.max_resolution)
 
 
 
@@ -776,12 +777,18 @@ def main(args):
                                       cache_dir=cache_dir)
 
     for i in range(0, rgb_images.shape[0]):
-        pipeline.run_NYU_pipeline(rgb_images[i], depth_maps[i], i, prompt=args.prompt,
-                                  guidance_scale=args.guidance_scale, strength=args.strength,
-                                  display=args.display)
 
-        if i > 0 and i % 5 == 0:
-            pipeline.compute_macro_eval(prompt=args.prompt, guidance_scale=args.guidance_scale, index_range=[0, i])
+        try:
+            pipeline.run_NYU_pipeline(rgb_images[i], depth_maps[i], i, prompt=args.prompt,
+                                      guidance_scale=args.guidance_scale, strength=args.strength,
+                                      display=args.display)
+
+            if i > 0 and i % 5 == 0:
+                pipeline.compute_macro_eval(prompt=args.prompt, guidance_scale=args.guidance_scale, index_range=[0, i])
+        except Exception as e:
+            print(f"------- For image no: {i} ------- ")
+            print(e)
+
 
 
 if __name__ == "__main__":

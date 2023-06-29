@@ -81,15 +81,26 @@ def process_mesh_marching_cubes(ground_pcd_path, full_mesh_path_obj, i, center_d
     ms.apply_filter("meshing_poly_to_tri")
 
     start = time.time()
-    ms.apply_filter('meshing_decimation_quadric_edge_collapse', targetfacenum=15000, preservenormal=True,
-                    planarquadric=True, qualitythr=0.8)
+    ms.apply_filter('meshing_decimation_quadric_edge_collapse', targetfacenum=20000, preservenormal=True,
+                    planarquadric=True, qualitythr=0.5, preservetopology=True)
     end = time.time()
     print(f"meshing_decimation_quadric_edge_collapse | time: {end - start}")
 
     # ms.apply_filter("delete_non_visible_meshes")
     # ms.compute_color_transfer_vertex_to_face()
     # ms.compute_texcoord_parametrization_triangle_trivial_per_wedge()
-    ms.apply_filter("apply_coord_laplacian_smoothing_surface_preserving")
+    #ms.apply_filter("apply_coord_laplacian_smoothing_surface_preserving")
+
+    start = time.time()
+    ms.apply_filter("apply_coord_laplacian_smoothing")
+    end = time.time()
+    print(f"apply_coord_laplacian_smoothing | time: {end - start}")
+
+    #start = time.time()
+    #ms.apply_filter("meshing_repair_non_manifold_edges")
+    #ms.apply_filter("meshing_close_holes")
+    #end = time.time()
+    #print(f"meshing_repair_non_manifold_edges, meshing_close_holes | time: {end - start}")
 
     start = time.time()
     # Adding color
