@@ -25,40 +25,6 @@ class ARCoreHandler:
                                             num_steps=num_steps,
                                             cache_dir=cache_dir)
 
-    def process_arcore_ground(self, rgb_filepath, depth_filepath, cam_rotation, i=0,
-                              resolution=384):
-        mesh_name = f"{i}_mesh.obj"
-        material_name = f"{i}_mesh.obj.mtl"
-        texture_name = f"{i}_mesh.png"
-        relative_mesh_path_obj = os.path.join("processed_user_data", f"{i}_mesh.obj")
-        full_mesh_path_obj = os.path.join(self.data_root, f"{relative_mesh_path_obj}")
-
-        predict_ground_depth_path = os.path.join(self.data_root, "ControlNet", "predicted_ground_truth_depth_maps",
-                                                 f"{i}_predict_ground_depth")
-
-        ground_pcd_path = os.path.join(self.data_root, "ground_point_clouds", f"{i}_arcore_ground_pcd.ply")
-
-        rgb_image, depth_map = prepare_arcore_data(rgb_filepath, depth_filepath,
-                                                   image_resolution=resolution, crop_rate=0.2)
-
-        predict_ground_depth_map = self.model.infer_depth_map(rgb_image, save_name=predict_ground_depth_path,
-                                                              display=False)
-
-        predict_ground_depth_map = resize_image(predict_ground_depth_map, resolution=resolution)
-        predict_ground_depth_map_aligned = align_midas_withzeros(predict_ground_depth_map, depth_map)
-
-        c1, c2 = predict_ground_depth_map_aligned.shape
-        center_depth = predict_ground_depth_map_aligned[c1 // 2, c2 // 2]
-
-        original_pcd = point_clouds.get_point_cloud(rgb_image, predict_ground_depth_map_aligned,
-                                                    pcd_path=ground_pcd_path,
-                                                    display=False)
-
-        mesh_processing.process_mesh_marching_cubes(ground_pcd_path, full_mesh_path_obj, i, center_depth / 10,
-                                                    cam_rotation)
-
-        return mesh_name, material_name, texture_name
-
     def process_arcore_generative(self, rgb_filepath, depth_filepath, cam_rotation, i=0, camIntrinsics="",
                                   only_ground=False, prompt=""):
 

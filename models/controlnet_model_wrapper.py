@@ -100,8 +100,6 @@ class ControlNetModelWrapper:
 
     def load_controlnet(self, cache_dir=""):
 
-        # if not self.remote_inference:
-
         kwargs = {"cache_dir": cache_dir} if cache_dir else {}
 
         torch.cuda.empty_cache()
@@ -149,9 +147,6 @@ class ControlNetModelWrapper:
 
             output = prediction.cpu().numpy()
 
-            print(f"infer_depth_map output.shape {output.shape}")
-            # output_resized = resize_image(output, self.resolution, is_depth=True)
-
             if display:
                 plt.imshow(output)
                 plt.show()
@@ -162,6 +157,7 @@ class ControlNetModelWrapper:
 
             return output
 
+    # inferring the segmentation map
     def infer_seg_ade20k(self, image, i, save_name='', scaling_factor=None, display=False):
 
         inputs = self.image_processor(image, return_tensors="pt")
@@ -214,7 +210,6 @@ class ControlNetModelWrapper:
         with torch.inference_mode():
             results = self.coltrolnet_pipe(prompt=prompt, negative_prompt=ModelData.negative_prompt,
                                            image=condition_image,
-                                           # image=source_image,
                                            height=H,
                                            width=W,
                                            guidance_scale=guidance_scale,
@@ -248,10 +243,20 @@ class ControlNetModelWrapper:
 
         return results.images[0]
 
+    # running the pipeline designed for interaction with the Unity Client that uses ARCore - AR Foundation
     def run_ARCore_pipeline(self, rgb_filepath, depth_filepath, i=0, prompt="",
                             guidance_scale=default_guidance_scale,
                             camIntrinsics="",
                             only_ground=False, display=False, save_eval=True):
+
+        # if not prompt is given, randomly assign a prompt
+        if not prompt:
+            prompt_id = randrange(len(ModelData.PROMPT_LIST))
+            prompt = ModelData.PROMPT_LIST[prompt_id]
+
+        self.evaluator.set_prompt(prompt)
+
+        # --- Setting all path variables and identifiers for storing results ---
 
         mesh_name = f"{i}_mesh.obj"
         material_name = f"{i}_mesh.obj.mtl"
@@ -259,12 +264,6 @@ class ControlNetModelWrapper:
         relative_mesh_path_obj = os.path.join("processed_user_data", f"{i}_mesh.obj")
         full_mesh_path_obj = os.path.join(self.result_root, f"{relative_mesh_path_obj}")
 
-        # ---------------- Setting paths and other variables
-        if not prompt:
-            prompt_id = randrange(len(ModelData.PROMPT_LIST))
-            prompt = ModelData.PROMPT_LIST[prompt_id]
-
-        self.evaluator.set_prompt(prompt)
 
         condition_id = self.condition_type if not self.multi_condition else f"_{'_'.join(self.condition_type)}_"
 
@@ -298,14 +297,14 @@ class ControlNetModelWrapper:
 
         rgb_image, arcore_depth_map, rgb_crop_val = prepare_arcore_data(rgb_filepath, depth_filepath)
 
-        # set new resolution for incoming image
+        # setting the resolution to the minimum of the actual image resolution completed to a multiple of 64, or the
+        # requested resolution
         self.resolution = min(rgb_image.shape[1] + 64 - rgb_image.shape[1] % 64, self.max_resolution)
 
         end = time.time()
         print(f"prepare_arcore_data | time: {end - start}")
 
         # getting parameters to use for all scaling and cropping stages
-
         H_original, W_original, H_resize, W_resize, scaling_factor, H_upsample, W_upsample = \
             get_sizing_params(resolution=self.resolution, original_shape=rgb_image.shape, round_down=False)
 
@@ -316,18 +315,17 @@ class ControlNetModelWrapper:
         rgb_image = reshape_to_shape(rgb_image, H_upsample, W_upsample, is_depth=False)
         arcore_depth_map = reshape_to_shape(arcore_depth_map, H_upsample, W_upsample, is_depth=True)
 
-        print(f"reshaped img shape {rgb_image.shape}")
-        print(f"reshaped ground_depth_map shape {arcore_depth_map.shape}")
-        # ----------------------------------------------------
+        # ---- Beginning Inference Steps
 
+        # inferring the depth map of the original RGB image
         start = time.time()
         predict_ground_depth_map = self.infer_depth_map(rgb_image, save_name=predict_ground_depth_path, display=False)
         end = time.time()
         print(f"infer_depth_map | time: {end - start}")
 
-        # predict_ground_depth_map = resize_image(predict_ground_depth_map, resolution=resolution)
         predict_ground_depth_map_aligned = align_midas_withzeros(predict_ground_depth_map, arcore_depth_map)
 
+        # depth of the center point of the image is used for translating the center point of the mesh accordingly later
         c1, c2 = predict_ground_depth_map_aligned.shape
         center_depth = arcore_depth_map[c1 // 2, c2 // 2]
 
@@ -337,6 +335,7 @@ class ControlNetModelWrapper:
         print(
             f"predict_ground_depth_map_aligned max: {predict_ground_depth_map_aligned.max()} | min: {predict_ground_depth_map_aligned.min()}")
 
+        # constructing the point cloud for the original RGB image
         start = time.time()
         point_clouds.get_point_cloud(
             reshape_to_shape(rgb_image, H_original, W_original, is_depth=False),  # rgb_image,
@@ -348,6 +347,7 @@ class ControlNetModelWrapper:
         end = time.time()
         print(f"get_point_cloud | time: {end - start}")
 
+        # ---- IF GENERATIVE MODE IS TURNED OFF ----
         if only_ground:
             center_depth = (
                                    predict_ground_depth_map_aligned.max() - predict_ground_depth_map_aligned.min()) / 2 - center_depth
@@ -361,17 +361,17 @@ class ControlNetModelWrapper:
 
         start = time.time()
 
+        # preparing condition inputs
         if self.multi_condition:
             depth_condition, H, W = prepare_nyu_controlnet_depth(predict_ground_depth_map,
                                                                  scaling_factor=scaling_factor)
-            # image_resolution=self.resolution)
             seg_condition, _, _ = self.infer_seg_ade20k(rgb_image, i, scaling_factor=scaling_factor,
                                                         save_name=condition_img_path)
             ground_condition = [depth_condition, seg_condition]
         elif self.condition_type == "depth":
             ground_condition, H, W = prepare_nyu_controlnet_depth(predict_ground_depth_map,
                                                                   scaling_factor=scaling_factor)
-        else:  # seg
+        else:  # segmentation
             ground_condition, H, W = self.infer_seg_ade20k(rgb_image, i, scaling_factor=scaling_factor,
                                                            save_name=condition_img_path)
 
@@ -382,7 +382,7 @@ class ControlNetModelWrapper:
         print(conditioning_scale)
 
         start = time.time()
-
+        # Image generation
         gen_img = self.infer_controlnet(source_image=rgb_image, prompt=prompt, condition_image=ground_condition,
                                         H=H, W=W,
                                         guidance_scale=default_guidance_scale,
@@ -395,37 +395,45 @@ class ControlNetModelWrapper:
         print(f"infer_controlnet | time: {end - start}")
 
         gen_img_np = np.array(gen_img)
+        # Upsampling the result image
         gen_img_np = resize_image(gen_img_np, resolution=W_upsample, is_depth=False, round=False, crop=False,
                                   ref_width=True)
 
         start = time.time()
-
+        # Inferring the depth map of the generated image
         gen_depth_map = self.infer_depth_map(gen_img_np, save_name=predict_depth_path)
         gen_depth_map_aligned = align_midas_withzeros(gen_depth_map, arcore_depth_map)
 
         end = time.time()
         print(f"infer_depth_map gen | time: {end - start}")
 
-        start = time.time()
+        # creating a heatmap to visually compare depth maps
         vis.get_depth_heat_map(arcore_depth_map, predict_ground_depth_map_aligned, gen_depth_map_aligned, img_id=i,
                                save_name=heatmap_path)
 
-        end = time.time()
-        print(f"get_point_cloud gen | time: {end - start}")
+        # constructing a point cloud from the generated RGB image
+        start = time.time()
         point_clouds.get_point_cloud(reshape_to_shape(gen_img_np, H_original, W_original, is_depth=False),
                                      reshape_to_shape(gen_depth_map_aligned, H_original, W_original, is_depth=True),
                                      camIntrinsics=camIntrinsics,
                                      pcd_path=gen_pcd_path, display=display)
+        end = time.time()
+        print(f"get_point_cloud gen | time: {end - start}")
 
+        # getting the difference between the median depth value of the center of the mesh bounding box
+        # and the actual image center depth
         center_depth = (gen_depth_map_aligned.max() - gen_depth_map_aligned.min()) / 2 - center_depth
 
+        # obtaining the Hausdorff distance result from point clouds
         mean_generation_dist = mesh_processing.get_hausdorff_distance(ground_pcd_path, gen_pcd_path)
 
+        # creating the final mesh and obtaining the Hausdorff distance results between generated point cloud and mesh
         mean_meshing_dist = mesh_processing.process_mesh_marching_cubes(gen_pcd_path, full_mesh_path_obj, i,
                                                                         center_depth / 10)
 
         start = time.time()
 
+        # preparing evaluation results
         eval_results = self.evaluator.evaluate_sample(rgb_image, gen_img_np, arcore_depth_map,
                                                       predict_ground_depth_map_aligned,
                                                       gen_depth_map_aligned,
@@ -436,6 +444,7 @@ class ControlNetModelWrapper:
 
         return mesh_name, material_name, texture_name
 
+    # running the pipeline designed for benchmarking locally on the NYU dataset
     def run_NYU_pipeline(self, image, depth_map, i, prompt="",
                          guidance_scale=7.5, strength=0.5,
                          conditioning_scale=[1, 0.7],
@@ -460,9 +469,12 @@ class ControlNetModelWrapper:
                      prompt_id=None,
                      original_image_W=None):
 
+        # set new resolution for incoming image
+        # because NYU images have W > H, to keep resolution effects comparable to the mobile application, we change resolution first:
         self.max_resolution = 640/480 * self.max_resolution
 
-
+        # setting the resolution to the minimum of the actual image resolution completed to a multiple of 64, or the
+        # requested resolution
         self.resolution = min(src_image.shape[1] + 64 - src_image.shape[1] % 64, self.max_resolution)
 
         # if not prompt is given, randomly assign a prompt
@@ -471,6 +483,8 @@ class ControlNetModelWrapper:
             prompt = ModelData.PROMPT_LIST[prompt_id]
 
         self.evaluator.set_prompt(prompt)
+
+        # --- Setting all path variables and identifiers for storing results ---
 
         condition_id = self.condition_type if not self.multi_condition else f"_{'_'.join(self.condition_type)}_"
 
@@ -486,7 +500,7 @@ class ControlNetModelWrapper:
             prompt_id = prompt[0:min(5, len(prompt))]
 
         identifier = f"{condition_id}_prompt_{prompt_id}_iter_{self.num_steps}_guide_{guidance_scale}_res_{self.resolution}"
-        # we want prompt to vary within evaluation
+        # we want the prompt to vary within the evaluation process
         eval_identifier = f"{condition_id}_iter_{self.num_steps}_guide_{guidance_scale}_res_{self.resolution}"
 
         eval_table_path = os.path.join(controlnet_folder, "eval_logs", f"{eval_identifier}.csv")
@@ -504,13 +518,8 @@ class ControlNetModelWrapper:
         relative_mesh_path_obj = os.path.join("meshes", mesh_name)
         full_mesh_path_obj = os.path.join(self.result_root, f"{relative_mesh_path_obj}")
 
+
         # getting parameters to use for all scaling and cropping stages
-
-        print(f"img shape {src_image.shape}")
-
-        # set new resolution for incoming image
-        # because NYU images have W > H, to keep resolution effects comparable to the mobile application, we change resolution first:
-
         H_original, W_original, H_resize, W_resize, scaling_factor, H_upsample, W_upsample = \
             get_sizing_params(resolution=self.resolution, original_shape=src_image.shape, round_down=False)
 
@@ -521,19 +530,21 @@ class ControlNetModelWrapper:
         src_image = reshape_to_shape(src_image, H_upsample, W_upsample, is_depth=False)
         ground_depth_map = reshape_to_shape(ground_depth_map, H_upsample, W_upsample, is_depth=True)
 
-        print(f"cropped img shape {src_image.shape}")
-        print(f"cropped ground_depth_map shape {ground_depth_map.shape}")
+        # ---- Beginning Inference Steps
 
+        # inferring the depth map of the original RGB image
         predict_ground_depth_map = self.infer_depth_map(src_image, save_name=predict_ground_depth_path,
                                                         display=display)
         predict_ground_depth_map_aligned = align_midas_withzeros(predict_ground_depth_map, ground_depth_map)
 
+        # constructing the point cloud for the original RGB image
         original_pcd = point_clouds.get_point_cloud(
             reshape_to_shape(src_image, H_original, W_original, is_depth=False),  # rgb_image,
             reshape_to_shape(predict_ground_depth_map_aligned, H_original, W_original, is_depth=True),
             pcd_path=ground_pcd_path,
             display=display)
 
+        # preparing condition inputs
         if self.multi_condition:
             depth_condition, H, W = prepare_nyu_controlnet_depth(predict_ground_depth_map,
                                                                  scaling_factor=scaling_factor)
@@ -543,8 +554,7 @@ class ControlNetModelWrapper:
         elif self.condition_type == "depth":
             ground_condition, H, W = prepare_nyu_controlnet_depth(predict_ground_depth_map,
                                                                   scaling_factor=scaling_factor)
-        else:  # seg
-            # ground_condition, H, W = prepare_nyu_controlnet_seg(ground_condition_np, num_classes=num_classes)
+        else:  # segmentation
             ground_condition, H, W = self.infer_seg_ade20k(src_image, i, scaling_factor=scaling_factor,
                                                            save_name=condition_img_path)
 
@@ -552,6 +562,7 @@ class ControlNetModelWrapper:
         print(
             f"predict_ground_depth_map_aligned max: {predict_ground_depth_map_aligned.max()} | min: {predict_ground_depth_map_aligned.min()}")
 
+        # Image generation
         gen_img = self.infer_controlnet(source_image=src_image, prompt=prompt, condition_image=ground_condition,
                                         H=H, W=W,
                                         guidance_scale=guidance_scale,
@@ -561,29 +572,34 @@ class ControlNetModelWrapper:
                                         comparison_save_name=comparison_save_name)
 
         gen_img_np = np.array(gen_img)
-
+        # Upsampling the result image
         gen_img_np = resize_image(gen_img_np, resolution=W_upsample, is_depth=False, round=False, crop=False,
                                   ref_width=True)
-
+        # Inferring the depth map of the generated image
         predict_depth_map = self.infer_depth_map(gen_img_np, save_name=predict_depth_path)
         predict_depth_map_aligned = align_midas(predict_depth_map, ground_depth_map)
 
         print(
             f"predict_depth_map_aligned max: {predict_depth_map_aligned.max()} | min: {predict_depth_map_aligned.min()}")
 
+        # creating a heatmap to visually compare depth maps
         heatmap = vis.get_depth_heat_map(ground_depth_map, predict_ground_depth_map_aligned,
                                          predict_depth_map_aligned,
                                          img_id=i, save_name=heatmap_path)
 
+        # constructing a point cloud from the generated RGB image
         generated_pcd = point_clouds.get_point_cloud(
             reshape_to_shape(gen_img_np, H_original, W_original, is_depth=False),
             reshape_to_shape(predict_depth_map_aligned, H_original, W_original, is_depth=True),
             pcd_path=gen_pcd_path, display=display)
 
+        # obtaining the Hausdorff distance result from point clouds
         mean_generation_dist = mesh_processing.get_hausdorff_distance(ground_pcd_path, gen_pcd_path)
 
+        # creating the final mesh and obtaining the Hausdorff distance results between generated point cloud and mesh
         mean_meshing_dist = mesh_processing.process_mesh_marching_cubes(gen_pcd_path, full_mesh_path_obj, i)
 
+        # preparing evaluation results
         eval_results = self.evaluator.evaluate_sample(src_image, gen_img_np, ground_depth_map,
                                                       predict_ground_depth_map_aligned,
                                                       predict_depth_map_aligned,
@@ -612,7 +628,7 @@ class ControlNetModelWrapper:
 
         self.evaluator.compute_macro_metrics(identifier=identifier, save_path=macro_eval_path)
 
-
+# used for running benchmarking on the NYU dataset
 def main(args):
     cache_dir = args.cache_dir
 
