@@ -15,7 +15,7 @@ ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'csv'}
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-handler = None #ARCoreHandler(data_root=UPLOAD_FOLDER, only_ground=False)
+handler = None
 
 
 # to display the connection status
@@ -70,15 +70,10 @@ def upload_file():
         depthWidth = request.form.get("depthWidth")
         depthHeight = request.form.get("depthHeight")
 
-        #confidenceWidth = request.form.get("confidenceWidth")
-        #confidenceHeight = request.form.get("confidenceHeight")
-
         print(f"imageWidth: {imageWidth}")
         print(f"imageHeight: {imageHeight}")
         print(f"depthWidth: {depthWidth}")
         print(f"depthHeight: {depthHeight}")
-        #print(f"confidenceWidth: {confidenceWidth}")
-        #print(f"confidenceHeight: {confidenceHeight}")
         print(f"cam_rotation: {cam_rotation}")
 
         camIntrinsics = request.form.get("camIntrinsics")
@@ -126,14 +121,9 @@ def upload_file():
 @app.route('/mesh/<path:mesh_path>', methods=['GET'])
 def get_mesh_file(mesh_path):
     mesh_buf = handler.get_serialized_object(mesh_path)
-    #mesh_buf = handler.get_serialized_object("andy.obj")
 
     if mesh_buf is not None:
-
-        # return Response(mesh_buf, mimetype="text/plain"), 200
         return Response(mesh_buf, mimetype="application/wavefront-obj"), 200
-        #return Response(mesh_buf, mimetype="model/obj"), 200
-
 
     else:
         return Response(
@@ -147,9 +137,6 @@ def get_material_file(material_path):
     material_buf = handler.get_serialized_object(material_path)
 
     if material_buf is not None:
-
-        # return Response(mesh_buf, mimetype="text/plain"), 200
-        # return Response(mesh_buf, mimetype="application/wavefront-obj"), 200
         return Response(material_buf, mimetype="model/mtl"), 200
 
 

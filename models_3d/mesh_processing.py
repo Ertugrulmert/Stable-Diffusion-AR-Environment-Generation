@@ -1,6 +1,7 @@
 import pymeshlab
 import os, sys, io, time
 
+# ball pivoting pipeline is no longer used, it is kept in teh code base for future reference
 def process_mesh_ball_pivoting(ground_pcd_path, full_mesh_path_obj, i):
     ms = pymeshlab.MeshSet()
     ms.clear()
@@ -32,17 +33,12 @@ def process_mesh_marching_cubes(ground_pcd_path, full_mesh_path_obj, i, center_d
     ms.clear()
     ms.load_new_mesh(ground_pcd_path)
 
-    print(f"center_depth {center_depth}")
-
-
     ms.apply_filter("compute_matrix_from_translation", traslmethod='Center on Scene BBox')
-
-    #ms.apply_filter("compute_matrix_from_translation", axisx=0.5)
-
-    #ms.apply_filter('compute_matrix_from_scaling_or_normalization', axisx=2)
 
     if center_depth:
         ms.apply_filter("compute_matrix_from_translation", axisz=center_depth)
+
+    # if adjustments related to camera angle are to be made, the following code may be used:
 
     # if cam_rotation is not None:
 
@@ -85,16 +81,13 @@ def process_mesh_marching_cubes(ground_pcd_path, full_mesh_path_obj, i, center_d
                     planarquadric=True, qualitythr=0.5, preservetopology=True)
     end = time.time()
     print(f"meshing_decimation_quadric_edge_collapse | time: {end - start}")
-
-    # ms.apply_filter("delete_non_visible_meshes")
-    # ms.compute_color_transfer_vertex_to_face()
-    # ms.compute_texcoord_parametrization_triangle_trivial_per_wedge()
-    #ms.apply_filter("apply_coord_laplacian_smoothing_surface_preserving")
-
     start = time.time()
     ms.apply_filter("apply_coord_laplacian_smoothing")
     end = time.time()
     print(f"apply_coord_laplacian_smoothing | time: {end - start}")
+
+    # the following operations causethe server to crash,
+    # if the issue is resolved, they must also be included in the pipeline
 
     #start = time.time()
     #ms.apply_filter("meshing_repair_non_manifold_edges")
@@ -108,24 +101,6 @@ def process_mesh_marching_cubes(ground_pcd_path, full_mesh_path_obj, i, center_d
     end = time.time()
     print(f"transfer_attributes_per_vertex | time: {end - start}")
 
-    # ms.apply_filter("delete_non_visible_meshes")
-
-    # start = time.time()
-    # ms.apply_filter("meshing_repair_non_manifold_edges")
-    # end = time.time()
-    # print(f"meshing_repair_non_manifold_edges | time: {end - start}")
-
-    # start = time.time()
-    # ms.apply_filter("meshing_close_holes", maxholesize=10, newfaceselected=False)
-    # end = time.time()
-    # print(f"meshing_close_holes | time: {end - start}")
-
-    # ms.apply_filter("apply_coord_laplacian_smoothing_surface_preserving")
-
-    # ms.compute_color_transfer_vertex_to_face()
-    # ms.apply_filter("compute_texcoord_transfer_vertex_to_wedge")
-    # ms.apply_filter("apply_texmap_defragmentation", timelimit=5)
-    # ms.compute_texcoord_parametrization_triangle_trivial_per_wedge()
     ms.apply_filter("compute_texcoord_parametrization_flat_plane_per_wedge")
     ms.compute_texmap_from_color(textname=f"{i}_mesh")  # , textw=256, texth=256)
 

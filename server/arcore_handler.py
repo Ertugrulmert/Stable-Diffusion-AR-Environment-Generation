@@ -8,7 +8,7 @@ parent_dir = os.path.dirname(os.path.dirname(__file__))
 
 class ARCoreHandler:
 
-    def __init__(self, mode="ground",
+    def __init__(self,
                  data_root='server/user_data',
                  resolution=384,
                  num_steps=20,
@@ -53,7 +53,7 @@ class ARCoreHandler:
         original_pcd = point_clouds.get_point_cloud(rgb_image, predict_ground_depth_map_aligned,
                                                     pcd_path=ground_pcd_path,
                                                     display=False)
-        # -- NEW CODE
+
         mesh_processing.process_mesh_marching_cubes(ground_pcd_path, full_mesh_path_obj, i, center_depth / 10,
                                                     cam_rotation)
 
@@ -67,7 +67,6 @@ class ARCoreHandler:
                                               only_ground=only_ground, display=False, save_eval=True)
 
     def get_serialized_object(self, path):
-        # mesh = o3d.io.read_triangle_mesh(mesh_path)
 
         full_path = os.path.join(self.data_root, "processed_user_data", path)
 

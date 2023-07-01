@@ -17,10 +17,6 @@ from utils.preprocessing import *
 
 def get_point_cloud(rgb_image, depth_image, camIntrinsics="", pcd_path="", display=False):
 
-    print("get point cloud")
-    print(f"rgb shape {rgb_image.shape}")
-    print(f"depth shape {depth_image.shape}")
-
     new_depth_image = o3d.geometry.Image(depth_image)
 
     rgbd_image = o3d.geometry.RGBDImage.create_from_color_and_depth(
@@ -47,28 +43,11 @@ def get_point_cloud(rgb_image, depth_image, camIntrinsics="", pcd_path="", displ
         cx = 236.8517
         cy = 320.5844
 
-    """
-    2023 / 06 / 18
-    12: 56:05.716
-    14469
-    29876
-    Info
-    Unity
-    Camera
-    intrinsics
-    {'focalLength.x': 482.2705, 'focalLength.y': 483.8367, 'principalPoint.x': 320.5844, 'principalPoint.y': 236.8517,
-     'resolution.x': 640, 'resolution.y': 480}"""
-
     pcd = o3d.geometry.PointCloud.create_from_rgbd_image(
         rgbd_image,
-        #o3d.camera.PinholeCameraIntrinsic(
-        #    o3d.camera.PinholeCameraIntrinsicParameters.PrimeSenseDefault))
         o3d.camera.PinholeCameraIntrinsic(width, height, fx, fy, cx, cy))
 
-    #o3d.camera.PinholeCameraIntrinsic(width, height, fx, fy, cx, cy)
-
     pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.0104, max_nn=12))
-
 
 
     # Flip it, otherwise the point cloud will be upside down
@@ -113,9 +92,6 @@ def rebuild_point_clouds(rgb_image, depth_map, i, result_root='./results/NYU/', 
     generated_pcd = get_point_cloud(gen_img_np, predict_depth_map_aligned, pcd_path=gen_pcd_path + ".pcd",
                                     display=display)
 
-    # pcd = o3d.io.read_point_cloud( nyu_result_root + f"point_clouds/{i}_ground_pcd.pcd")
-    # o3d.visualization.draw_geometries([pcd])
-
     return original_pcd, generated_pcd
 
 
@@ -139,21 +115,14 @@ def rebuild_point_clouds_ground_depth(rgb_image, depth_map, i, result_root='./re
     image_resolution = predict_depth_map.shape[0]
 
     src_img_np, ground_depth_map, original_image_W = prepare_nyu_data(rgb_image, depth_map, image_resolution=image_resolution)
-    #resized_src_img = resize_image(src_img_np, image_resolution)
     gen_img = Image.open(gen_img_path)
     gen_img.show()
     gen_img_np = np.array(gen_img)
-
-    #groundmap_for_heatmap = resize_image(ground_depth_map, image_resolution)
-    #predict_depth_map_aligned = align_midas(predict_depth_map, ground_depth_map)
 
     original_pcd = get_point_cloud(src_img_np, ground_depth_map, pcd_path=ground_pcd_path + ".pcd",
                                    display=display)
     generated_pcd = get_point_cloud(gen_img_np, ground_depth_map, pcd_path=gen_pcd_path + "_ground_depth.pcd",
                                     display=display)
-
-    # pcd = o3d.io.read_point_cloud( nyu_result_root + f"point_clouds/{i}_ground_pcd.pcd")
-    # o3d.visualization.draw_geometries([pcd])
 
     return original_pcd, generated_pcd
 
@@ -193,12 +162,12 @@ def rebuild_point_clouds_heatmap(rgb_image, depth_map, i, result_root='./results
 
     pcd = get_point_cloud(heatmap, predict_depth_map_aligned, pcd_path=gen_pcd_path, display=display)
 
-    # pcd = o3d.io.read_point_cloud( nyu_result_root + f"point_clouds/{i}_heatmap_pcd.pcd")
     if display:
         o3d.visualization.draw_geometries([pcd])
     return pcd
 
-
+# Open3D based mesh building code is no longer used,
+# it is kept in the codebase for future reference and potential use in experiments
 def get_mesh_from_pcd(pcd, method="ball_rolling"):
     with o3d.utility.VerbosityContextManager(o3d.utility.VerbosityLevel.Debug) as cm:
 

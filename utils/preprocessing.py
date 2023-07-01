@@ -52,30 +52,7 @@ def prepare_arcore_data(rgb_filepath, depth_filepath, confidence_filepath=None, 
     print(f"prepare_arcore_data depthMap max: {depthMap.max()} | min: {depthMap.min()}")
 
     depthMap = np.float32(depthMap)
-
     depthMap /= 1000
-
-    print(f"original image shape: {rgb_image.shape}")
-
-    """
-
-    original_image_W = rgb_image.shape[1]
-    rgb_image_resized = resize_image(rgb_image, image_resolution)
-    rgb_H = rgb_image_resized.shape[0]
-
-    # depth image must be resized to have the same height as color image
-    depth_resized = resize_image(depthMap, rgb_H, ref_min=False, is_depth=True)
-    d_w = depth_resized.shape[1]
-    rgb_w = rgb_image_resized.shape[1]
-
-    print(f"image before crop shape: {rgb_image_resized.shape}")
-
-    pad_val = int((rgb_w - d_w) / 2)
-
-    depth_padded = np.pad(depth_resized, ((0, 0), (pad_val, pad_val)), mode='constant')
-    
-    """
-
 
     rgb_H = rgb_image.shape[0]
     # depth image must be resized initially to have the same height as color image
@@ -96,37 +73,6 @@ def prepare_arcore_data(rgb_filepath, depth_filepath, confidence_filepath=None, 
         rgb_crop_val=0
         pad_val = int((rgb_w - d_w) / 2)
         depth_resized = np.pad(depth_resized, ((0, 0), (pad_val, pad_val)), mode='constant')
-
-    """
-
-    # adjust according to crop for 64
-    original_image_W = rgb_image_resized.shape[1] - rgb_image_resized.shape[1] % 64
-
-    # resize to desired resolution
-    rgb_image_resized = resize_image(rgb_image_resized, image_resolution, crop=True)
-    depth_resized = resize_image(depth_resized, image_resolution, is_depth=True, crop=True)  # ref_min=False,
-
-    print(f"after res resize rgb: {rgb_image_resized.shape}")
-    print(f"after res resize depth: {depth_resized.shape}")
-
-    if crop_rate:
-        rgb_image_resized = crop_image(rgb_image_resized, crop_rate)
-        depth_resized = crop_image(depth_resized, crop_rate)
-
-        original_image_W = int(original_image_W * (1 - 2 * crop_rate))
-
-        print(f"w cut down to: {original_image_W}")
-        print(f"image after crop shape: {rgb_image_resized.shape}")
-
-        rgb_image_resized = resize_image(rgb_image_resized, image_resolution)
-        print(f"image after crop resize shape: {rgb_image_resized.shape}")
-        depth_resized = resize_image(depth_resized, image_resolution, is_depth=True)
-
-        print(f"prepare_arcore_data after crop_rate max: {depth_resized.max()} | min: {depth_resized.min()}")
-
-    """
-
-    #return rgb_image_resized, depth_resized, original_image_W
 
     return rgb_image, depth_resized, rgb_crop_val
 
@@ -160,8 +106,6 @@ def prepare_nyu_data(rgb_img=None, condition_img=None, image_resolution=512):
 
 
 def align_midas(midas_pred, ground_truth):
-    print(f"midas_pred_shape: {midas_pred.shape}")
-    print(f"ground_truth_shape: {ground_truth.shape}")
 
     ground_truth_invert = 1 / (ground_truth + 10e-6)  # invert absolute depth with meters
     x = midas_pred.copy().flatten()  # Midas Depth
@@ -176,9 +120,6 @@ def align_midas(midas_pred, ground_truth):
 
 def align_midas_withzeros(midas_pred, ground_truth):
     nonzero = np.nonzero(ground_truth)
-
-    print(f"midas_pred_shape: {midas_pred.shape}")
-    print(f"ground_truth_shape: {ground_truth.shape}")
 
     ground_truth_invert = 1 / (ground_truth[nonzero] + 10e-6)  # invert absolute depth with meters
     x = midas_pred.copy()[nonzero].flatten()  # Midas Depth
@@ -195,7 +136,7 @@ def align_midas_withzeros(midas_pred, ground_truth):
 
 
 def HWC3(x):
-    # assert x.dtype == np.uint8
+
     if x.ndim == 2:
         x = x[:, :, None]
     assert x.ndim == 3
@@ -337,13 +278,7 @@ def get_sizing_params(resolution, original_shape, round_down=False):
 def prepare_nyu_controlnet_depth(x, scaling_factor=None):
     new_img = x.astype(np.float32)
 
-    # if is_nyu:
-    #    new_img = new_img * 25.5
-
-    # new_img = 1 / (new_img.astype(np.float32) + 10e-6)
-
     nonzero = np.nonzero(new_img)
-    # new_img -= np.min(new_img)
     new_img[nonzero] -= np.min(new_img[nonzero])
     new_img /= np.max(new_img)
     new_img = (new_img * 255.0).clip(0, 255).astype(np.uint8)
@@ -355,18 +290,6 @@ def prepare_nyu_controlnet_depth(x, scaling_factor=None):
     else:
         H, W = new_img.shape[:2]
 
-    print(f"new image shape: {new_img.shape}")
-    print(f"new image max: {new_img.max()} min: {new_img.min()}")
-
-    print(f"new image H: {H} W: {W}")
-
-    # detected_map = np.moveaxis(detected_map, -1, 0)
-
-    ##control = torch.from_numpy(detected_map.copy()).float() / 255.0
-
-    # result = Image.fromarray(detected_map)
-
-    # result = torch.stack([control for _ in range(num_samples)], dim=0)
     control_image = Image.fromarray(np.uint8(new_img))
 
     control_image.show()

@@ -13,7 +13,7 @@ from utils.preprocessing import prepare_nyu_data, align_midas
 from models.model_data import *
 
 
-# taken from https://github.com/nianticlabs/monodepth2/blob/master/evaluate_depth.py
+# taken from teh following source and modified: https://github.com/nianticlabs/monodepth2/blob/master/evaluate_depth.py
 def compute_errors(gt, pred):
     """Computation of error metrics between predicted and ground truth depths
     """
@@ -92,10 +92,6 @@ class Evaluator:
         self.set_prompt(prompt)
         df = pd.DataFrame(columns=self.columns)
 
-        # lpips = LearnedPerceptualImagePatchSimilarity(net_type='vgg')
-        # fid = FrechetInceptionDistance(feature=64)
-        # inception = InceptionScore()
-        # clip = CLIPScore(model_name_or_path="openai/clip-vit-large-patch14")
 
         f = h5py.File(dataset_path)
         rgb_images = f['images']
@@ -103,9 +99,6 @@ class Evaluator:
 
         index_begin = index_range[0] if index_range[0] > 0 else 0
         index_end = index_range[1] if 0 < index_range[0] <= rgb_images.shape[0] else rgb_images.shape[0]
-
-        # index_limit = min(index_limit,rgb_images.shape[0])
-
         src_images = []
         gen_images = []
         ground_depth_images = []
@@ -179,10 +172,9 @@ class Evaluator:
             g_pgen_abs_rel, g_pgen_sq_rel, g_pgen_rmse, g_pgen_rmse_log, g_pgen_a1, g_pgen_a2, g_pgen_a3, g_pgen_avg_thresh, g_pgen_b_avg, g_pgen_b_rel, g_pgen_b_rate = compute_errors(
                 ground_depth_map, predict_depth_map_aligned)
 
-            df.loc[i] = [i,  # fid_score,
+            df.loc[i] = [i,
                          prompt_id,
                          lpips_score.item(),
-                         # inception_score,
                          clip_score,
                          g_pg_abs_rel, g_pg_sq_rel, g_pg_rmse, g_pg_rmse_log,
                          g_pg_a1, g_pg_a2, g_pg_a3, g_pg_avg_thresh,
@@ -198,10 +190,6 @@ class Evaluator:
             # storing tensors for metric that require multiple samples
             src_images.append(src_img_tensor)
             gen_images.append(gen_img_tensor)
-
-            # ground_depth_images.append(ground_depth_tensor)
-            # predict_ground_depth_images.append(predict_ground_depth_tensor)
-            # gen_depth_images.append(gen_depth_tensor)
 
         src_image_tensor = torch.cat(src_images)
         gen_image_tensor = torch.cat(gen_images)
@@ -230,9 +218,6 @@ class Evaluator:
         if prompt:
             self.set_prompt(prompt)
         df = pd.DataFrame(columns=self.columns)
-
-        #predict_ground_depth_map_aligned = align_midas(predict_ground_depth_map, ground_depth_map)
-        #predict_depth_map_aligned = align_midas(predict_depth_map, ground_depth_map)
 
         # creating image tensors
         src_img_tensor = torch.from_numpy(np.moveaxis(src_img_np, 2, 0)).unsqueeze(0)
