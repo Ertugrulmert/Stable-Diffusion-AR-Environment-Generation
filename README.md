@@ -78,5 +78,8 @@ Both the results folder and the server/user_data folder are structured as follow
 ## Further Information
 Please refer to the project report _AR_Environment_Design_with_Stable_Diffusion_Semester_Project_Report.pdf_
 
+## Android Unity Client Application Repository
+The repository for the Andorid Unity client implementation can be found [this link](https://github.com/Ertugrulmert/AR_Stable_Diffusion_Unity_Client/tree/master) 
+
 ## Authors
 Mert Ertugrul 
