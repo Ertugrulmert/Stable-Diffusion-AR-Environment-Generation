@@ -1,6 +1,9 @@
 # AR Environment Design with Stable Diffusion
 
-This repository contains the server and benchmarking implementation for the project **_AR Environment Design with Stable Diffusion_**
+This repository contains the server and benchmarking implementation for the project **_AR Environment Design with Stable Diffusion_**. The project comprises a client-server system that generates 3D environments for augmented reality (AR) applications on Android devices. The system leverages diffusion-based generative models, specifically Stable Diffusion 2, and conditions the image generation with geometric and semantic cues using the ControlNet pipeline. It automates the process of AR environment creation, providing a fast and visually appealing experience from user-provided text prompts and images. For a detailed explanation of the system, please refer to the report included in this repository.
+
+
+![Overview of the server-client system](System_Diagram.png)
 
 
 ## Setup
